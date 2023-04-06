@@ -4,17 +4,19 @@
 #include <map>
 #include<list>
 
+#include "mqtt_broker.h"
 #include "spdlog/spdlog.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 
-using namespace std;
+//Разобраться с этой херней
+//#include "src/functions.cpp"
 
-template <typename T>
-void PrintType [[maybe_unused]](T) {
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-}
+int main() {
+    auto max_size = 1048576 * 5; // 5 Mb
+    auto max_files = 5;
+    auto logger = spdlog::rotating_logger_mt("mqtt_broker_logger", "mqtt_broker.log", max_size, max_files);
 
-int main(int argc, char *argv[]) {
-
+    spdlog::info("START BROKER");
 
     return EXIT_FAILURE;
 }
