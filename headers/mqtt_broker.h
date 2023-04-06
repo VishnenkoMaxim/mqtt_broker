@@ -5,9 +5,8 @@
 #ifndef MQTT_BROKER_H
 #define MQTT_BROKER_H
 
-using namespace std;
+#include "functions.h"
 
-template <typename T>
-void PrintType [[maybe_unused]](T);
+using namespace std;
 
 #endif //MQTT_BROKER_H
