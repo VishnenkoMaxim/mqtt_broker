@@ -9,8 +9,10 @@ project(mqtt_broker VERSION ${PROJECT_VERSION})
 configure_file(version.h.in version.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(headers)
+include_directories(headers/libconfig)
 
 link_directories(libs)
+link_directories(/usr/local/lib)
 link_directories(${CMAKE_BINARY_DIR})
 
 add_executable(mqtt_broker main.cpp)
@@ -22,6 +24,7 @@ target_include_directories(functions PRIVATE "${CMAKE_BINARY_DIR}")
 
 target_link_libraries(mqtt_broker PRIVATE spdlog)
 target_link_libraries(mqtt_broker PRIVATE functions)
+target_link_libraries(mqtt_broker PRIVATE config++)
 
 target_compile_options(mqtt_broker PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(functions PRIVATE -Wall -Wextra -pedantic)
