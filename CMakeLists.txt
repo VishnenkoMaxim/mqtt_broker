@@ -22,6 +22,7 @@ set_target_properties(mqtt_broker functions PROPERTIES CXX_STANDARD 17 CXX_STAND
 target_include_directories(functions PRIVATE "${CMAKE_BINARY_DIR}")
 target_link_libraries(mqtt_broker PRIVATE spdlog functions config++ stdc++ m)
 
+add_subdirectory(test)
 
 target_compile_options(mqtt_broker PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(functions PRIVATE -Wall -Wextra -pedantic)

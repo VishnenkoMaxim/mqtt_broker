@@ -1,0 +1,1 @@
+/usr/bin/c++ -rdynamic CMakeFiles/google_tests_run.dir/tests.o -o google_tests_run   -L../libs  -L/usr/local/lib  -L/mnt/c/Repository/mqtt/mqtt_broker/test/lib  -Wl,-rpath,../libs:/usr/local/lib lib/libgtest.a lib/libgtest_main.a -lfunctions -lspdlog -lconfig++ lib/libgtest.a 

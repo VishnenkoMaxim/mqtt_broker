@@ -16,7 +16,7 @@ using namespace std;
 using namespace libconfig;
 
 #define ERR_OK                  0
-#define ERR_BAD_CONFIG          -1
+#define ERR_BAD_CONFIG          (-1)
 
 #define DEFAULT_CFG_FILE "/home/cfg/mqtt_broker.cfg"
 #define _1MB                1048576

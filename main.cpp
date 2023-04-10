@@ -6,7 +6,6 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 
 int main() {
-
     int err = 0;
     ServerCfgData cfg_data = ReadConfig(err);
 

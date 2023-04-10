@@ -1,0 +1,2 @@
+/usr/bin/ar qc libfunctions.a CMakeFiles/functions.dir/mnt/c/Repository/mqtt/mqtt_broker/src/functions.o
+/usr/bin/ranlib libfunctions.a
