@@ -15,17 +15,20 @@ link_directories(libs)
 link_directories(/usr/local/lib)
 link_directories(${CMAKE_BINARY_DIR})
 
-add_executable(mqtt_broker main.cpp)
+add_executable(mqtt_broker main.cpp src/broker.cpp src/conn_properties.cpp)
 add_library(functions src/functions.cpp)
+add_library(mqtt_protocol src/mqtt_protocol.cpp)
 
-set_target_properties(mqtt_broker functions PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+set_target_properties(mqtt_broker functions mqtt_protocol PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(functions PRIVATE "${CMAKE_BINARY_DIR}")
-target_link_libraries(mqtt_broker PRIVATE spdlog functions config++ stdc++ m)
+target_include_directories(mqtt_protocol PRIVATE "${CMAKE_BINARY_DIR}")
+target_link_libraries(mqtt_broker PRIVATE spdlog functions mqtt_protocol config++ stdc++ m)
 
 add_subdirectory(test)
 
 target_compile_options(mqtt_broker PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(functions PRIVATE -Wall -Wextra -pedantic)
+target_compile_options(mqtt_protocol PRIVATE -Wall -Wextra -pedantic)
 
 install(TARGETS mqtt_broker RUNTIME DESTINATION bin)
 set(CPACK_GENERATOR DEB)
