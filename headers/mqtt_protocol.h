@@ -9,6 +9,7 @@
 #include <utility>
 #include <arpa/inet.h>
 #include <iostream>
+#include <map>
 
 using namespace std;
 
@@ -127,19 +128,6 @@ namespace mqtt_protocol{
         void CopyFromNet(const uint8_t *buf);
     };
 
-    class MqttDataEntity{
-    private:
-        uint8_t type;
-        shared_ptr<uint8_t> data;
-    public:
-        MqttDataEntity() : type(mqtt_data_type::undefined){data = nullptr;};
-        MqttDataEntity(uint8_t _type, const uint8_t *_data);
-
-        uint8_t GetType();
-        uint8_t* GetData();
-        ~MqttDataEntity() = default;
-    };
-
     class MqttStringEntity;
 
     class MqttEntity{
@@ -148,8 +136,13 @@ namespace mqtt_protocol{
     public:
         virtual uint32_t Size() = 0;
         virtual uint8_t* GetData() = 0;
+
         virtual shared_ptr<pair<MqttStringEntity, MqttStringEntity>> GetPair();
-        virtual uint8_t GetType();
+        virtual uint8_t     GetType();
+        virtual uint32_t    GetUint();
+        virtual string      GetString();
+        virtual pair<string, string>      GetStringPair();
+        virtual int Create(const uint8_t *buf, uint8_t &size);
 
         virtual ~MqttEntity() = default;
     };
@@ -168,6 +161,7 @@ namespace mqtt_protocol{
 
         uint32_t Size() override;
         uint8_t* GetData() override;
+        uint32_t GetUint() override;
 
         ~MqttByteEntity() override {
             data.reset();
@@ -188,6 +182,7 @@ namespace mqtt_protocol{
 
         uint32_t Size() override;
         uint8_t* GetData() override;
+        uint32_t GetUint() override;
 
         ~MqttTwoByteEntity() override {
             data.reset();
@@ -208,6 +203,8 @@ namespace mqtt_protocol{
 
         uint32_t Size() override;
         uint8_t* GetData() override;
+        uint32_t GetUint() override;
+
         ~MqttFourByteEntity() override {
             data.reset();
         }
@@ -231,6 +228,7 @@ namespace mqtt_protocol{
 
         uint32_t Size() override;
         uint8_t* GetData() override;
+        string GetString() override;
 
         ~MqttStringEntity() override {
             data.reset();
@@ -253,6 +251,7 @@ namespace mqtt_protocol{
 
         uint32_t Size() override;
         uint8_t* GetData() override;
+
         ~MqttBinaryDataEntity() override {
             data.reset();
         }
@@ -270,6 +269,8 @@ namespace mqtt_protocol{
         uint32_t Size() override;
         uint8_t* GetData()  override;
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>> GetPair() override;
+        pair<string, string> GetStringPair() override;
+
         ~MqttStringPairEntity() override {
             data.reset();
         }
@@ -312,31 +313,35 @@ namespace mqtt_protocol{
         uint32_t    Size() override;
         uint8_t     GetType() override;
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>>     GetPair() override;
+        uint32_t    GetUint() override;
+        string      GetString() override;
+        pair<string, string> GetStringPair() override;
 
         ~MqttProperty() override {
             property->~MqttEntity();
         };
     };
 
-    class MqttPropertyChain {
+    class MqttPropertyChain{
     private:
-        vector<shared_ptr<MqttProperty>> properties{};
+        map<uint8_t, shared_ptr<MqttProperty>, less<>, PoolAllocator<pair<uint8_t, shared_ptr<MqttProperty>>, 5>> properties;
     public:
         MqttPropertyChain() = default;
 
-        void            AddProperty(shared_ptr<MqttProperty> entity);
+        void            AddProperty(const shared_ptr<MqttProperty>& entity);
         uint32_t        Count();
-        shared_ptr<MqttProperty>   GetProperty(unsigned int i);
+        shared_ptr<MqttProperty>   GetProperty(uint8_t _id);
+        shared_ptr<MqttProperty>   operator[](uint8_t _id);
 
         ~MqttPropertyChain() {
             for (auto &it : properties){
-                it.reset();
+                it.second.reset();
             }
         }
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);
-    [[nodiscard]] uint8_t ReadVariableInt(const uint8_t *buf, int &value, uint8_t &size);
+    [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, int &value, uint8_t &size);
     [[nodiscard]] shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
 }
 

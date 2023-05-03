@@ -116,9 +116,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             int properties_len = 0;
                                             uint8_t size = 0;
 
-                                            uint8_t stat = ReadVariableInt(buf.get() + offset, properties_len, size);
+                                            uint8_t stat = DeCodeVarInt(buf.get() + offset, properties_len, size);
                                             if (stat != mqtt_err::ok){
-                                                broker.lg->error("Read ReadVariableInt error");
+                                                broker.lg->error("Read DeCodeVarInt error");
                                                 broker.CloseConnection(broker.fds.get()[i].fd);
                                                 broker.fds.reset();
                                                 broker.SetState(broker_states::started);

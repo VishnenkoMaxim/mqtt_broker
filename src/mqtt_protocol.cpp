@@ -22,7 +22,7 @@ using namespace temp_funcs;
     return mqtt_err::ok;
 }
 
-[[nodiscard]] uint8_t mqtt_protocol::ReadVariableInt(const uint8_t *buf, int &value, uint8_t &size){
+[[nodiscard]] uint8_t mqtt_protocol::DeCodeVarInt(const uint8_t *buf, int &value, uint8_t &size){
     uint8_t single_byte;
     uint32_t multiplayer = 1;
     value = 0;
@@ -41,62 +41,24 @@ using namespace temp_funcs;
     return mqtt_err::ok;
 }
 
-MqttDataEntity::MqttDataEntity(const uint8_t _type, const uint8_t *_data) : type(_type) {
-    switch (type) {
-        case mqtt_data_type::two_byte : {
-            data = shared_ptr<uint8_t>(new uint8_t[2]);
-            memcpy(data.get(), _data, 2);
-        }; break;
-
-        case mqtt_data_type::four_byte : {
-            data = shared_ptr<uint8_t>(new uint8_t[4]);
-            memcpy(data.get(), _data, 4);
-        }; break;
-
-        case mqtt_data_type::mqtt_string : {
-            uint16_t len;
-            memcpy(&len, _data, 2);
-            data = shared_ptr<uint8_t>(new uint8_t[len + 2]);
-            memcpy(data.get(), _data, len + 2);
-        }; break;
-
-        case mqtt_data_type::binary_data : {
-            uint16_t len;
-            memcpy(&len, _data, 2);
-            data = shared_ptr<uint8_t>(new uint8_t[len + 2]);
-            memcpy(data.get(), _data, len + 2);
-        }; break;
-
-        case mqtt_data_type::mqtt_string_pair : {
-            uint16_t len;
-            uint16_t len_2;
-            memcpy(&len, _data, 2);
-            memcpy(&len_2, _data + len + 2, 2);
-            data = shared_ptr<uint8_t>(new uint8_t[len + len_2 + sizeof(len) + sizeof(len_2)]);
-            memcpy(data.get(), _data, len + len_2 + sizeof(len) + sizeof(len_2));
-        }; break;
-
-        default : {
-            type = mqtt_data_type::undefined;
-            data = nullptr;
-        }
-    };
-}
-
-uint8_t MqttDataEntity::GetType(){
-    return type;
-}
-
-uint8_t* MqttDataEntity::GetData(){
-    return data.get();
-}
-
 shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttEntity::GetPair() {
     return nullptr;
 }
 
 uint8_t MqttEntity::GetType(){
     return type;
+}
+
+uint32_t MqttEntity::GetUint() {
+    return 0;
+}
+
+string MqttEntity::GetString(){
+    return string{};
+}
+
+pair<string, string> MqttEntity::GetStringPair(){
+    return pair{string{}, string{}};
 }
 
 uint32_t MqttByteEntity::Size() {
@@ -107,12 +69,20 @@ uint8_t* MqttByteEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
+uint32_t MqttByteEntity::GetUint() {
+    return (uint32_t) *data;
+}
+
 uint32_t MqttTwoByteEntity::Size() {
     return sizeof(uint16_t);
 }
 
 uint8_t* MqttTwoByteEntity::GetData(){
     return (uint8_t *) data.get();
+}
+
+uint32_t MqttTwoByteEntity::GetUint() {
+    return (uint32_t) *data;
 }
 
 uint32_t MqttFourByteEntity::Size(){
@@ -123,12 +93,20 @@ uint8_t* MqttFourByteEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
+uint32_t MqttFourByteEntity::GetUint() {
+    return (uint32_t) *data;
+}
+
 uint32_t MqttStringEntity::Size(){
     return sizeof(uint16_t) + data->size();
 }
 
 uint8_t* MqttStringEntity::GetData(){
     return (uint8_t *) data->data();
+}
+
+string MqttStringEntity::GetString() {
+    return *data;
 }
 
 uint32_t MqttBinaryDataEntity::Size(){
@@ -146,6 +124,10 @@ uint32_t MqttStringPairEntity::Size(){
 uint8_t* MqttStringPairEntity::GetData(){
     return data->first.GetData();
 };
+
+pair<string, string> MqttStringPairEntity::GetStringPair(){
+    return pair{GetPair()->first.GetString(), GetPair()->second.GetString()};
+}
 
 uint32_t MqttVIntEntity::Size(){
     return 4;
@@ -179,14 +161,33 @@ shared_ptr<pair<MqttStringEntity, MqttStringEntity>>     MqttProperty::GetPair()
     return property->GetPair();
 }
 
-void MqttPropertyChain::AddProperty(shared_ptr<MqttProperty> entity){
-    properties.push_back(entity);
+uint32_t MqttProperty::GetUint(){
+    return property->GetUint();
+}
+
+string MqttProperty::GetString() {
+    return property->GetString();
+}
+
+pair<string, string> MqttProperty::GetStringPair() {
+    return property->GetStringPair();
+}
+
+void MqttPropertyChain::AddProperty(const shared_ptr<MqttProperty>& entity){
+    uint8_t _id = entity->GetId();
+    properties.insert(make_pair(_id, entity));
 }
 uint32_t MqttPropertyChain::Count(){
     return properties.size();
 }
-shared_ptr<MqttProperty> MqttPropertyChain::GetProperty(unsigned int i){
-    return properties[i];
+shared_ptr<MqttProperty> MqttPropertyChain::GetProperty(uint8_t _id){
+    auto it = properties.find(_id);
+    if (it != properties.end()) return it->second;
+    return nullptr;
+}
+
+shared_ptr<MqttProperty>   MqttPropertyChain::operator[](uint8_t _id){
+    return properties[_id];
 }
 
 void ConnectVH::CopyFromNet(const uint8_t *buf){
@@ -197,7 +198,7 @@ void ConnectVH::CopyFromNet(const uint8_t *buf){
     alive = tmp;
 }
 
-shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size){
+shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8_t &size){
     if (buf == nullptr){
         size = 0;
         return nullptr;
@@ -252,13 +253,14 @@ shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size){
             size += len_1;
             size += sizeof(len_2);
             size += len_2;
+
             return make_shared<MqttProperty>(id, shared_ptr<MqttEntity>(new MqttStringPairEntity(MqttStringEntity(len_1, &buf[1 + sizeof(len_1)]),
                                                                                          MqttStringEntity(len_2, &buf[1 + sizeof(len_1) + len_1 + sizeof(len_2)]))));
         }
 
         case subscription_identifier:{
             int val;
-            uint8_t res = ReadVariableInt(buf, val, size);
+            uint8_t res = DeCodeVarInt(buf, val, size);
             if (res == mqtt_err::ok){
                 return make_shared<MqttProperty>(id, shared_ptr<MqttEntity>(new MqttVIntEntity((uint8_t *)&val)));
             } else {

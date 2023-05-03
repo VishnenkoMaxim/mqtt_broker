@@ -11,9 +11,8 @@ private:
     uint8_t flags;
     MqttPropertyChain properties;
 public:
-    explicit ConnProperties() : flags(0){}
-    explicit ConnProperties(const uint8_t _flags) : flags(_flags){
-    }
+    ConnProperties() : flags(0){}
+    explicit ConnProperties(const uint8_t _flags) : flags(_flags){}
 
     void SetFlags(uint8_t _flags);
 

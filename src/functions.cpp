@@ -19,11 +19,12 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
     } catch(const FileIOException &fioex){
         std::cerr << "I/O error while reading file." << std::endl;
         err = cfg_err::bad_file;
-        return ServerCfgData();
+        return ServerCfgData{};
     }
 
     const Setting &root = cfg.getRoot();
     const Setting &log_cfg = root["log_file"];
+    const Setting &broker_cfg = root["broker"];
 
     string path;
     int size(0);
@@ -47,7 +48,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
         max_file = 3;
     }
 
-    if (!log_cfg.lookupValue("port", port)) {
+    if (!broker_cfg.lookupValue("port", port)) {
         std::cerr << "port arg error. Set default (" << DEFAULT_PORT << ")" << std::endl;
         port = DEFAULT_PORT;
     }
@@ -61,7 +62,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
     return (ServerCfgData{path, size, max_file, port, log_level});
 }
 
-void SetLogLevel(shared_ptr<logger> lg, int _level) noexcept {
+void SetLogLevel(const shared_ptr<logger>& lg, int _level) noexcept {
     switch(_level){
         case 0 : {lg->set_level(spdlog::level::trace);} break;
         case 1 : {lg->set_level(spdlog::level::debug);} break;
