@@ -15,7 +15,7 @@ link_directories(libs)
 link_directories(/usr/local/lib)
 link_directories(${CMAKE_BINARY_DIR})
 
-add_executable(mqtt_broker main.cpp src/broker.cpp src/conn_properties.cpp)
+add_executable(mqtt_broker main.cpp src/broker.cpp)
 add_library(functions src/functions.cpp)
 add_library(mqtt_protocol src/mqtt_protocol.cpp)
 

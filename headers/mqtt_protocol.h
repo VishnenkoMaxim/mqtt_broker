@@ -142,7 +142,6 @@ namespace mqtt_protocol{
         virtual uint32_t    GetUint();
         virtual string      GetString();
         virtual pair<string, string>      GetStringPair();
-        virtual int Create(const uint8_t *buf, uint8_t &size);
 
         virtual ~MqttEntity() = default;
     };

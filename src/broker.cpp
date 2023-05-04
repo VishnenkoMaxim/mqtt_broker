@@ -102,6 +102,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     }
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
+                                            int fd = broker.fds.get()[i].fd;
                                             ConnectVH con_vh;
                                             uint32_t offset = 0;
 
@@ -111,10 +112,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             memcpy(name_tmp, con_vh.name, 4);
                                             broker.lg->debug("Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}",
                                                              con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
-
                                             //read properties
                                             int properties_len = 0;
                                             uint8_t size = 0;
+                                            broker.clients[fd].SetConnAlive(12);
 
                                             uint8_t stat = DeCodeVarInt(buf.get() + offset, properties_len, size);
                                             if (stat != mqtt_err::ok){
@@ -128,6 +129,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             offset += size;
                                             uint32_t p_len = properties_len;
                                             while(p_len > 0){
+                                                uint8_t offset = 0;
 
                                                 p_len--;
                                             }
@@ -140,7 +142,6 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             if (id_len > 0){
                                                 //todo read ClientID
                                             } else broker.lg->info("No ClientID provided");
-
                                         }; break;
 
                                         default : {
