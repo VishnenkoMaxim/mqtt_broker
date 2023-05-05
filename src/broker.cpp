@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <memory>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -93,6 +94,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     broker.lg->debug("action:{}", broker.GetControlPacketTypeName(f_head.GetType()));
                                     shared_ptr<uint8_t> buf(new uint8_t[f_head.remaining_len], default_delete<uint8_t[]>());
                                     ret = ReadData(broker.fds.get()[i].fd, buf.get(), f_head.remaining_len, 0);
+                                    broker.lg->debug("remaining_len:{}", f_head.remaining_len);
                                     if (ret != (int) f_head.remaining_len){
                                         broker.lg->error("Read error. Read {} bytes instead of {}", ret, f_head.remaining_len);
                                         broker.CloseConnection(broker.fds.get()[i].fd);
@@ -103,6 +105,8 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
                                             int fd = broker.fds.get()[i].fd;
+                                            shared_ptr<Client> pClient = broker.clients[fd];
+
                                             ConnectVH con_vh;
                                             uint32_t offset = 0;
 
@@ -110,15 +114,19 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             offset += sizeof(con_vh);
                                             char name_tmp[5] = "";
                                             memcpy(name_tmp, con_vh.name, 4);
-                                            broker.lg->debug("Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}",
-                                                             con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
+                                            broker.lg->debug(
+                                                    "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}",
+                                                    con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags,
+                                                    con_vh.alive);
+
+                                            pClient->SetConnAlive(con_vh.alive);
+                                            pClient->SetConnFlags(con_vh.conn_flags);
                                             //read properties
                                             int properties_len = 0;
                                             uint8_t size = 0;
-                                            broker.clients[fd].SetConnAlive(12);
 
                                             uint8_t stat = DeCodeVarInt(buf.get() + offset, properties_len, size);
-                                            if (stat != mqtt_err::ok){
+                                            if (stat != mqtt_err::ok) {
                                                 broker.lg->error("Read DeCodeVarInt error");
                                                 broker.CloseConnection(broker.fds.get()[i].fd);
                                                 broker.fds.reset();
@@ -128,19 +136,18 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             broker.lg->debug("properties len:{}", properties_len);
                                             offset += size;
                                             uint32_t p_len = properties_len;
-                                            while(p_len > 0){
-                                                uint8_t offset = 0;
-
-                                                p_len--;
+                                            while (p_len > 0) {
+                                                uint8_t size_property;
+                                                auto property = CreateProperty(buf.get() + offset, size_property);
+                                                pClient->conn_properties.AddProperty(property);
+                                                p_len -= size_property;
+                                                offset += size_property;
                                             }
-                                            offset += properties_len;
                                             //read ClientID
-                                            uint16_t id_len_raw, id_len;
-                                            memcpy(&id_len_raw, buf.get() + offset, sizeof(id_len_raw));
-                                            offset += sizeof(id_len_raw);
-                                            id_len = ntohs(id_len_raw);
-                                            if (id_len > 0){
-                                                //todo read ClientID
+                                            uint8_t id_len;
+                                            shared_ptr<MqttStringEntity> id = CreateMqttStringEntity(buf.get() + offset, id_len);
+                                            if (id != nullptr){
+                                                pClient->SetID(id->GetString());
                                             } else broker.lg->info("No ClientID provided");
                                         }; break;
 
@@ -173,7 +180,7 @@ void* ServerThread([[maybe_unused]] void *arg){
 
 int Broker::AddClient(int sock, const string &_ip){
     current_clients++;
-    Client new_client(_ip);
+    shared_ptr<Client> new_client = std::make_shared<Client>(_ip);
     pthread_mutex_lock(&clients_mtx);
     auto ret = clients.insert(make_pair(sock, new_client));
     pthread_mutex_unlock(&clients_mtx);

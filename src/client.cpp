@@ -30,3 +30,6 @@ bool Client::isWillFlag() const {
 bool Client::isCleanFlag() const {
     return flags & 0x2;
 }
+void Client::SetID(const string& _id){
+    client_id = _id;
+}

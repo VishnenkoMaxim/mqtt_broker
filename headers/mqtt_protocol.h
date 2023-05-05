@@ -97,7 +97,7 @@ namespace mqtt_protocol{
         [[nodiscard]] uint8_t GetType() const { return first>>4;}
         [[nodiscard]] uint8_t GetFlags() const { return first & 0x0F; }
 
-        bool    isIdentifier() const {
+        [[nodiscard]] bool    isIdentifier() const {
             uint8_t type = GetType();
             if ((type >= PUBACK && type <= UNSUBACK) || (type == PUBLISH && QoS() > 0)){
                 return true;
@@ -105,7 +105,7 @@ namespace mqtt_protocol{
             return false;
         }
 
-        bool    isProperties() const {
+        [[nodiscard]] bool    isProperties() const {
             uint8_t type = GetType();
             if ((type >= CONNECT && type <= UNSUBACK) || (type == DISCONNECT) || (type == AUTH)){
                 return true;
@@ -132,16 +132,16 @@ namespace mqtt_protocol{
 
     class MqttEntity{
     protected:
-        uint8_t type;
+        uint8_t type = 0;
     public:
-        virtual uint32_t Size() = 0;
+        [[nodiscard]] virtual uint32_t Size() const = 0;
         virtual uint8_t* GetData() = 0;
 
         virtual shared_ptr<pair<MqttStringEntity, MqttStringEntity>> GetPair();
-        virtual uint8_t     GetType();
-        virtual uint32_t    GetUint();
-        virtual string      GetString();
-        virtual pair<string, string>      GetStringPair();
+        [[nodiscard]] virtual uint8_t     GetType() const;
+        [[nodiscard]] virtual uint32_t    GetUint() const;
+        [[nodiscard]] virtual string      GetString() const;
+        [[nodiscard]] virtual pair<string, string>      GetStringPair() const;
 
         virtual ~MqttEntity() = default;
     };
@@ -158,9 +158,14 @@ namespace mqtt_protocol{
             memcpy(data.get(), _data, sizeof(uint8_t));
         }
 
-        uint32_t Size() override;
+        MqttByteEntity(const MqttByteEntity& _obj) noexcept;
+        MqttByteEntity(MqttByteEntity&& _obj) noexcept;
+        MqttByteEntity& operator=(const MqttByteEntity& _obj) noexcept;
+        MqttByteEntity& operator=(MqttByteEntity&& _obj) noexcept;
+
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
-        uint32_t GetUint() override;
+        [[nodiscard]] uint32_t GetUint() const override;
 
         ~MqttByteEntity() override {
             data.reset();
@@ -179,9 +184,14 @@ namespace mqtt_protocol{
             memcpy(data.get(), _data, 2);
         }
 
-        uint32_t Size() override;
+        MqttTwoByteEntity(const MqttTwoByteEntity& _obj) noexcept;
+        MqttTwoByteEntity(MqttTwoByteEntity&& _obj) noexcept;
+        MqttTwoByteEntity& operator=(const MqttTwoByteEntity& _obj) noexcept;
+        MqttTwoByteEntity& operator=(MqttTwoByteEntity&& _obj) noexcept;
+
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
-        uint32_t GetUint() override;
+        [[nodiscard]] uint32_t GetUint() const override;
 
         ~MqttTwoByteEntity() override {
             data.reset();
@@ -200,9 +210,14 @@ namespace mqtt_protocol{
             memcpy(data.get(), _data, 4);
         }
 
-        uint32_t Size() override;
+        MqttFourByteEntity(const MqttFourByteEntity& _obj) noexcept;
+        MqttFourByteEntity(MqttFourByteEntity&& _obj) noexcept;
+        MqttFourByteEntity& operator=(const MqttFourByteEntity& _obj) noexcept;
+        MqttFourByteEntity& operator=(MqttFourByteEntity&& _obj) noexcept;
+
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
-        uint32_t GetUint() override;
+        [[nodiscard]] uint32_t GetUint() const override;
 
         ~MqttFourByteEntity() override {
             data.reset();
@@ -220,14 +235,15 @@ namespace mqtt_protocol{
             data = std::make_shared<std::string>((char *)_data, _len);
         }
 
-        MqttStringEntity(MqttStringEntity&& _obj) noexcept {
-            data = _obj.data;
-            type = _obj.type;
-        }
+        explicit MqttStringEntity(const string& _str) noexcept;
+        MqttStringEntity(const MqttStringEntity& _obj) noexcept;
+        MqttStringEntity(MqttStringEntity&& _obj) noexcept;
+        MqttStringEntity& operator=(const MqttStringEntity& _obj) noexcept;
+        MqttStringEntity& operator=(MqttStringEntity&& _obj) noexcept;
 
-        uint32_t Size() override;
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
-        string GetString() override;
+        [[nodiscard]] string GetString() const override;
 
         ~MqttStringEntity() override {
             data.reset();
@@ -248,7 +264,12 @@ namespace mqtt_protocol{
             memcpy(data.get(), _data, size);
         }
 
-        uint32_t Size() override;
+        MqttBinaryDataEntity(const MqttBinaryDataEntity& _obj) noexcept;
+        MqttBinaryDataEntity(MqttBinaryDataEntity&& _obj) noexcept;
+        MqttBinaryDataEntity& operator=(const MqttBinaryDataEntity& _obj) noexcept;
+        MqttBinaryDataEntity& operator=(MqttBinaryDataEntity&& _obj) noexcept;
+
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
 
         ~MqttBinaryDataEntity() override {
@@ -265,10 +286,16 @@ namespace mqtt_protocol{
             data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(std::move(str_1), std::move(str_2));
         }
 
-        uint32_t Size() override;
+        MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept;
+        MqttStringPairEntity(const string &_str_1, const string &_str_2) noexcept;
+        MqttStringPairEntity(MqttStringPairEntity&& _obj) noexcept;
+        MqttStringPairEntity& operator=(const MqttStringPairEntity& _obj) noexcept;
+        MqttStringPairEntity& operator=(MqttStringPairEntity&& _obj) noexcept;
+
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData()  override;
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>> GetPair() override;
-        pair<string, string> GetStringPair() override;
+        pair<string, string> GetStringPair() const override;
 
         ~MqttStringPairEntity() override {
             data.reset();
@@ -287,7 +314,7 @@ namespace mqtt_protocol{
             memcpy(data.get(), _data, sizeof(uint32_t));
         }
 
-        uint32_t Size() override;
+        [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
 
         ~MqttVIntEntity() override {
@@ -295,7 +322,7 @@ namespace mqtt_protocol{
         }
     };
 
-    class MqttProperty : public MqttEntity {
+    class MqttProperty final : public MqttEntity {
     private:
         shared_ptr<MqttEntity> property;
         uint8_t id;
@@ -309,12 +336,12 @@ namespace mqtt_protocol{
 
         uint8_t     GetId() const;
         uint8_t*    GetData() override;
-        uint32_t    Size() override;
-        uint8_t     GetType() override;
+        uint32_t    Size() const override;
+        uint8_t     GetType() const override;
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>>     GetPair() override;
-        uint32_t    GetUint() override;
-        string      GetString() override;
-        pair<string, string> GetStringPair() override;
+        uint32_t    GetUint() const override;
+        string      GetString() const override;
+        pair<string, string> GetStringPair() const override;
 
         ~MqttProperty() override {
             property->~MqttEntity();
@@ -342,6 +369,7 @@ namespace mqtt_protocol{
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);
     [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, int &value, uint8_t &size);
     [[nodiscard]] shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
+    [[nodiscard]] shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
 }
 
 #endif //MQTT_BROKER_MQTT_PROTOCOL_H

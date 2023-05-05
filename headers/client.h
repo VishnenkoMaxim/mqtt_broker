@@ -10,16 +10,16 @@ class Client{
 private:
     string ip{};
     string client_id{};
-    uint8_t state;
+    [[maybe_unused]] uint8_t state;
     uint8_t flags;
     uint16_t alive;
-    MqttPropertyChain conn_properties;
-
 public:
+    MqttPropertyChain conn_properties;
     explicit Client(string _ip) : ip(std::move(_ip)), state(0), flags(0), alive(0) {}
 
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
+    void SetID(const string& _id);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;
@@ -27,6 +27,10 @@ public:
     uint8_t WillQoSFlag() const;
     bool isWillFlag() const;
     bool isCleanFlag() const;
+
+    ~Client(){
+        conn_properties.~MqttPropertyChain();
+    }
 };
 
 #endif //MQTT_BROKER_CLIENT_H

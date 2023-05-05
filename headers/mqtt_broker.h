@@ -82,7 +82,7 @@ class Broker{
 private:
     pthread_mutex_t clients_mtx;
     unsigned int current_clients;
-    map<int, Client, less<>, PoolAllocator<pair<const int, Client>, 10>> clients;
+    map<int, shared_ptr<Client>> clients;
     int state;
     int control_sock;
     pthread_t server_tid;
@@ -101,9 +101,6 @@ private:
     int ReadFixedHeader(int fd, FixedHeader &f_hed);
     string GetControlPacketTypeName(const uint8_t _packet);
     void CloseConnection(int fd);
-
-    //void ParseMqttPacket(shared_ptr<uint8_t> data, uint32_t data_size);
-    //int ReadVariableHeader(int fd, ConnectVH &con_vh);
 public:
     friend void* ServerThread (void *arg);
 

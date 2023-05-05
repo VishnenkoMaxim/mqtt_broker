@@ -33,6 +33,10 @@ TEST(MqttEntity, Test_1){
     EXPECT_EQ(entity->GetType(), mqtt_data_type::two_byte);
     EXPECT_EQ(memcmp(entity->GetData(), &var, sizeof(var)), 0);
 
+    MqttTwoByteEntity pp((uint8_t *) &var);
+    MqttTwoByteEntity pp2 = std::move(pp);
+    EXPECT_EQ(pp2.GetUint(), var);
+
     delete entity;
 }
 
@@ -43,6 +47,11 @@ TEST(MqttEntity, Test_2){
     EXPECT_EQ(entity->Size(), sizeof(var));
     EXPECT_EQ(entity->GetType(), mqtt_data_type::four_byte);
     EXPECT_EQ(memcmp(entity->GetData(), &var, sizeof(var)), 0);
+
+    MqttFourByteEntity pp((uint8_t *) &var);
+    MqttFourByteEntity pp2 = std::move(pp);
+    EXPECT_EQ(pp2.GetUint(), var);
+
     delete entity;
 }
 TEST(MqttEntity, Test_3){
@@ -52,6 +61,11 @@ TEST(MqttEntity, Test_3){
     EXPECT_EQ(entity->Size(), strlen(str) + 2);
     EXPECT_EQ(entity->GetType(), mqtt_data_type::mqtt_string);
     EXPECT_EQ(strcmp((char *) (entity->GetData()), str), 0);
+
+    MqttStringEntity pp = MqttStringEntity(strlen(str), (uint8_t *) str);
+    MqttStringEntity pp2 = std::move(pp);
+    EXPECT_EQ(strcmp((char *) (pp2.GetData()), str), 0);
+
     delete entity;
 }
 
@@ -62,6 +76,11 @@ TEST(MqttEntity, Test_4){
     EXPECT_EQ(entity->Size(), 2 + sizeof(buf));
     EXPECT_EQ(entity->GetType(), mqtt_data_type::binary_data);
     EXPECT_EQ(memcmp(entity->GetData(), buf, sizeof(buf)), 0);
+
+    MqttBinaryDataEntity pp(sizeof(buf), buf);
+    MqttBinaryDataEntity pp2 = std::move(pp);
+    EXPECT_EQ(memcmp(pp2.GetData(), buf, sizeof(buf)), 0);
+
     delete entity;
 }
 
@@ -75,6 +94,16 @@ TEST(MqttEntity, Test_5){
     auto test_pair = entity->GetPair();
     EXPECT_EQ(strcmp((char *) (test_pair->first.GetData()), p_str_1), 0);
     EXPECT_EQ(strcmp((char *) (test_pair->second.GetData()), p_str_2), 0);
+
+    MqttStringPairEntity pp((string(p_str_1)), string(p_str_2));
+    auto pp2 = pp;
+    auto pp3 = std::move(pp2);
+    auto t = pp3.GetStringPair();
+    EXPECT_EQ(strcmp((char *) (t.first.c_str()), p_str_1), 0);
+    EXPECT_EQ(strcmp((char *) (t.second.c_str()), p_str_2), 0);
+    EXPECT_EQ(t.first == p_str_1, true);
+    EXPECT_EQ(t.second == p_str_2, true);
+
     delete entity;
 }
 
@@ -85,6 +114,10 @@ TEST(MqttEntity, Test_6){
     EXPECT_EQ(entity->Size(), sizeof(var));
     EXPECT_EQ(entity->GetType(), mqtt_data_type::byte);
     EXPECT_EQ(memcmp(entity->GetData(), &var, sizeof(var)), 0);
+
+    MqttByteEntity pp(&var);
+    MqttByteEntity pp2 = std::move(pp);
+    EXPECT_EQ(pp2.GetUint(), var);
 
     delete entity;
 }
@@ -141,6 +174,7 @@ TEST(MqttProperties, Test_4){
 
     EXPECT_EQ(strcmp(prop->GetStringPair().first.c_str(), p_str_1), 0);
     EXPECT_EQ(strcmp(prop->GetStringPair().second.c_str(), p_str_2), 0);
+
     delete prop;
 }
 

@@ -1,5 +1,7 @@
 #include "mqtt_protocol.h"
 
+#include <memory>
+
 using namespace mqtt_protocol;
 using namespace temp_funcs;
 
@@ -45,23 +47,46 @@ shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttEntity::GetPair() {
     return nullptr;
 }
 
-uint8_t MqttEntity::GetType(){
+uint8_t MqttEntity::GetType() const{
     return type;
 }
 
-uint32_t MqttEntity::GetUint() {
+uint32_t MqttEntity::GetUint() const{
     return 0;
 }
 
-string MqttEntity::GetString(){
+string MqttEntity::GetString() const {
     return string{};
 }
 
-pair<string, string> MqttEntity::GetStringPair(){
+pair<string, string> MqttEntity::GetStringPair() const {
     return pair{string{}, string{}};
 }
 
-uint32_t MqttByteEntity::Size() {
+MqttByteEntity::MqttByteEntity(const MqttByteEntity& _obj) noexcept {
+    data.reset();
+    data = std::make_shared<std::uint8_t>(_obj.GetUint());
+    type = _obj.type;
+}
+
+MqttByteEntity::MqttByteEntity(MqttByteEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+MqttByteEntity& MqttByteEntity::operator=(const MqttByteEntity& _obj) noexcept{
+    data.reset();
+    data = std::make_shared<std::uint8_t>(_obj.GetUint());
+    return *this;
+}
+MqttByteEntity& MqttByteEntity::operator=(MqttByteEntity&& _obj) noexcept{
+    data.reset();
+    data = _obj.data;
+    _obj.data = nullptr;
+    return *this;
+}
+
+uint32_t MqttByteEntity::Size() const {
     return sizeof(uint8_t);
 }
 
@@ -69,11 +94,35 @@ uint8_t* MqttByteEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
-uint32_t MqttByteEntity::GetUint() {
+uint32_t MqttByteEntity::GetUint() const {
     return (uint32_t) *data;
 }
 
-uint32_t MqttTwoByteEntity::Size() {
+MqttTwoByteEntity::MqttTwoByteEntity(const MqttTwoByteEntity& _obj) noexcept{
+    data = std::make_shared<std::uint16_t>(_obj.GetUint());
+    type = _obj.type;
+}
+
+MqttTwoByteEntity::MqttTwoByteEntity(MqttTwoByteEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+
+MqttTwoByteEntity& MqttTwoByteEntity::operator=(const MqttTwoByteEntity& _obj) noexcept{
+    data.reset();
+    data = std::make_shared<std::uint16_t>(_obj.GetUint());
+    return *this;
+}
+
+MqttTwoByteEntity& MqttTwoByteEntity::operator=(MqttTwoByteEntity&& _obj) noexcept{
+    data.reset();
+    data = _obj.data;
+    _obj.data = nullptr;
+    return *this;
+}
+
+uint32_t MqttTwoByteEntity::Size() const {
     return sizeof(uint16_t);
 }
 
@@ -81,11 +130,35 @@ uint8_t* MqttTwoByteEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
-uint32_t MqttTwoByteEntity::GetUint() {
+uint32_t MqttTwoByteEntity::GetUint() const {
     return (uint32_t) *data;
 }
 
-uint32_t MqttFourByteEntity::Size(){
+MqttFourByteEntity::MqttFourByteEntity(const MqttFourByteEntity& _obj) noexcept{
+    data = std::make_shared<std::uint32_t>(_obj.GetUint());
+    type = _obj.type;
+}
+
+MqttFourByteEntity::MqttFourByteEntity(MqttFourByteEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+
+MqttFourByteEntity& MqttFourByteEntity::operator=(const MqttFourByteEntity& _obj) noexcept{
+    data.reset();
+    data = std::make_shared<std::uint32_t>(_obj.GetUint());
+    return *this;
+}
+
+MqttFourByteEntity& MqttFourByteEntity::operator=(MqttFourByteEntity&& _obj) noexcept{
+    data.reset();
+    data = _obj.data;
+    _obj.data = nullptr;
+    return *this;
+}
+
+uint32_t MqttFourByteEntity::Size() const {
     return sizeof(uint32_t);
 }
 
@@ -93,11 +166,40 @@ uint8_t* MqttFourByteEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
-uint32_t MqttFourByteEntity::GetUint() {
+uint32_t MqttFourByteEntity::GetUint() const {
     return (uint32_t) *data;
 }
 
-uint32_t MqttStringEntity::Size(){
+MqttStringEntity::MqttStringEntity(const MqttStringEntity& _obj) noexcept {
+    data = std::make_shared<std::string>(_obj.GetString());
+    type = _obj.type;
+}
+
+MqttStringEntity::MqttStringEntity(const string& _str) noexcept{
+    type = mqtt_data_type::mqtt_string;
+    data = std::make_shared<std::string>(_str);
+}
+
+MqttStringEntity::MqttStringEntity(MqttStringEntity&& _obj) noexcept {
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+
+MqttStringEntity& MqttStringEntity::operator=(const MqttStringEntity& _obj) noexcept {
+    data.reset();
+    data = std::make_shared<std::string>(_obj.GetString());
+    return *this;
+}
+
+MqttStringEntity& MqttStringEntity::operator=(MqttStringEntity&& _obj) noexcept{
+    data.reset();
+    data = _obj.data;
+    _obj.data = nullptr;
+    return *this;
+}
+
+uint32_t MqttStringEntity::Size() const {
     return sizeof(uint16_t) + data->size();
 }
 
@@ -105,11 +207,44 @@ uint8_t* MqttStringEntity::GetData(){
     return (uint8_t *) data->data();
 }
 
-string MqttStringEntity::GetString() {
+string MqttStringEntity::GetString() const {
     return *data;
 }
 
-uint32_t MqttBinaryDataEntity::Size(){
+MqttBinaryDataEntity::MqttBinaryDataEntity(const MqttBinaryDataEntity& _obj) noexcept{
+    size = _obj.size;
+    data = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
+    memcpy(data.get(), _obj.data.get(), size);
+    type = _obj.type;
+}
+
+MqttBinaryDataEntity::MqttBinaryDataEntity(MqttBinaryDataEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    size = _obj.size;
+    _obj.size = 0;
+    _obj.data = nullptr;
+}
+
+MqttBinaryDataEntity& MqttBinaryDataEntity::operator=(const MqttBinaryDataEntity& _obj) noexcept{
+    data.reset();
+    size = _obj.size;
+    data = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
+    memcpy(data.get(), _obj.data.get(), size);
+    type = _obj.type;
+    return *this;
+}
+
+MqttBinaryDataEntity& MqttBinaryDataEntity::operator=(MqttBinaryDataEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    size = _obj.size;
+    _obj.size = 0;
+    _obj.data = nullptr;
+    return *this;
+}
+
+uint32_t MqttBinaryDataEntity::Size() const {
     return sizeof(uint16_t) + size;
 }
 
@@ -117,7 +252,36 @@ uint8_t* MqttBinaryDataEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
-uint32_t MqttStringPairEntity::Size(){
+MqttStringPairEntity::MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept{
+    type = _obj.type;
+    data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(_obj.GetStringPair());
+}
+
+MqttStringPairEntity::MqttStringPairEntity(MqttStringPairEntity&& _obj) noexcept{
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+
+MqttStringPairEntity& MqttStringPairEntity::operator=(const MqttStringPairEntity& _obj) noexcept{
+    data.reset();
+    data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(_obj.GetStringPair());
+    return *this;
+}
+
+MqttStringPairEntity& MqttStringPairEntity::operator=(MqttStringPairEntity&& _obj) noexcept{
+    data.reset();
+    data = _obj.data;
+    _obj.data = nullptr;
+    return *this;
+}
+
+MqttStringPairEntity::MqttStringPairEntity(const string &_str_1, const string &_str_2) noexcept{
+    type = mqtt_data_type::mqtt_string_pair;
+    data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(pair<MqttStringEntity, MqttStringEntity>(_str_1, _str_2));
+}
+
+uint32_t MqttStringPairEntity::Size() const {
     return data->first.Size() + data->second.Size();
 }
 
@@ -125,11 +289,12 @@ uint8_t* MqttStringPairEntity::GetData(){
     return data->first.GetData();
 };
 
-pair<string, string> MqttStringPairEntity::GetStringPair(){
-    return pair{GetPair()->first.GetString(), GetPair()->second.GetString()};
+pair<string, string> MqttStringPairEntity::GetStringPair() const {
+    //return pair{GetPair()->first.GetString(), GetPair()->second.GetString()};
+    return pair{(const_cast<MqttStringPairEntity *>(this))->GetPair()->first.GetString(), (const_cast<MqttStringPairEntity *>(this))->GetPair()->second.GetString()};
 }
 
-uint32_t MqttVIntEntity::Size(){
+uint32_t MqttVIntEntity::Size() const {
     return 4;
 }
 
@@ -145,7 +310,7 @@ uint8_t*    MqttProperty::GetData(){
     return property->GetData();
 }
 
-uint32_t    MqttProperty::Size(){
+uint32_t    MqttProperty::Size() const {
     return property->Size();
 }
 
@@ -153,7 +318,7 @@ uint8_t MqttProperty::GetId() const{
     return id;
 }
 
-uint8_t MqttProperty::GetType() {
+uint8_t MqttProperty::GetType() const {
     return property->GetType();
 }
 
@@ -161,15 +326,15 @@ shared_ptr<pair<MqttStringEntity, MqttStringEntity>>     MqttProperty::GetPair()
     return property->GetPair();
 }
 
-uint32_t MqttProperty::GetUint(){
+uint32_t MqttProperty::GetUint() const {
     return property->GetUint();
 }
 
-string MqttProperty::GetString() {
+string MqttProperty::GetString() const {
     return property->GetString();
 }
 
-pair<string, string> MqttProperty::GetStringPair() {
+pair<string, string> MqttProperty::GetStringPair() const {
     return property->GetStringPair();
 }
 
@@ -196,6 +361,22 @@ void ConnectVH::CopyFromNet(const uint8_t *buf){
     prot_name_len = tmp;
     tmp = ntohs(alive);
     alive = tmp;
+}
+
+shared_ptr<MqttStringEntity> mqtt_protocol::CreateMqttStringEntity(const uint8_t *buf, uint8_t &size){
+    if (buf == nullptr){
+        size = 0;
+        return nullptr;
+    }
+    uint16_t len;
+    len = ConvertToHost2Bytes(buf);
+    if (len == 0){
+        size = 0;
+        return nullptr;
+    }
+    size = sizeof(len);
+    size += len;
+    return make_shared<MqttStringEntity>(len, &buf[2]);
 }
 
 shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8_t &size){
