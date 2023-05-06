@@ -281,9 +281,9 @@ namespace mqtt_protocol{
     private:
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>> data{};
     public:
-        MqttStringPairEntity(MqttStringEntity str_1, MqttStringEntity str_2){
+        MqttStringPairEntity(const MqttStringEntity& str_1, const MqttStringEntity& str_2){
             type = mqtt_data_type::mqtt_string_pair;
-            data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(std::move(str_1), std::move(str_2));
+            data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(str_1, str_2);
         }
 
         MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept;

@@ -4,12 +4,13 @@
 
 #include <gtest/gtest.h>
 #include <string>
-#include <stdio.h>
+//#include <stdio.h>
 #include <sys/types.h>
 
 #include "functions.h"
 #include "mqtt_broker.h"
 #include "mqtt_protocol.h"
+#include "command.h"
 
 using namespace std;
 
@@ -95,7 +96,7 @@ TEST(MqttEntity, Test_5){
     EXPECT_EQ(strcmp((char *) (test_pair->first.GetData()), p_str_1), 0);
     EXPECT_EQ(strcmp((char *) (test_pair->second.GetData()), p_str_2), 0);
 
-    MqttStringPairEntity pp((string(p_str_1)), string(p_str_2));
+    MqttStringPairEntity pp{string(p_str_1), string(p_str_2)};
     auto pp2 = pp;
     auto pp3 = std::move(pp2);
     auto t = pp3.GetStringPair();
@@ -393,4 +394,22 @@ TEST(MqttGetProperty, Test_6){
     EXPECT_EQ(size, sizeof(buf));
 
     property.reset();
+}
+
+TEST(Command, Test_1){
+    Commands command(1);
+
+    int fd;
+    string file_name = "file";
+    fd = open(file_name.c_str(), O_WRONLY | O_CREAT);
+    auto buf = shared_ptr<uint8_t>(new uint8_t[16], default_delete<uint8_t[]>());
+    uint32_t size = 16;
+    memcpy(buf.get(), "test 123", 8);
+
+    command.Add(fd, make_tuple(size, buf));
+    close(fd);
+    fd = open(file_name.c_str(), O_RDONLY);
+    EXPECT_GE(fd, 0);
+    close(fd);
+    remove(file_name.c_str());
 }

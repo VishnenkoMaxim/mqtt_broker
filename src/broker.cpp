@@ -88,24 +88,24 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     close(data_socket);
                                 } else broker.lg->error("control socket accept error");
                             } else {
+                                int fd = broker.fds.get()[i].fd;
                                 FixedHeader f_head;
-                                int ret = broker.ReadFixedHeader(broker.fds.get()[i].fd, f_head);
+                                int ret = broker.ReadFixedHeader(fd, f_head);
                                 if (ret == broker_err::ok){
                                     broker.lg->debug("action:{}", broker.GetControlPacketTypeName(f_head.GetType()));
                                     shared_ptr<uint8_t> buf(new uint8_t[f_head.remaining_len], default_delete<uint8_t[]>());
-                                    ret = ReadData(broker.fds.get()[i].fd, buf.get(), f_head.remaining_len, 0);
+                                    ret = ReadData(fd, buf.get(), f_head.remaining_len, 0);
                                     broker.lg->debug("remaining_len:{}", f_head.remaining_len);
                                     if (ret != (int) f_head.remaining_len){
                                         broker.lg->error("Read error. Read {} bytes instead of {}", ret, f_head.remaining_len);
-                                        broker.CloseConnection(broker.fds.get()[i].fd);
+                                        broker.CloseConnection(fd);
                                         broker.fds.reset();
                                         broker.SetState(broker_states::started);
                                         break;
                                     }
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
-                                            int fd = broker.fds.get()[i].fd;
-                                            shared_ptr<Client> pClient = broker.clients[fd];
+                                            auto pClient = broker.clients[fd];
 
                                             ConnectVH con_vh;
                                             uint32_t offset = 0;
@@ -145,7 +145,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             }
                                             //read ClientID
                                             uint8_t id_len;
-                                            shared_ptr<MqttStringEntity> id = CreateMqttStringEntity(buf.get() + offset, id_len);
+                                            auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
                                             if (id != nullptr){
                                                 pClient->SetID(id->GetString());
                                             } else broker.lg->info("No ClientID provided");
@@ -156,7 +156,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                         }
                                     }
                                 } else {
-                                    broker.CloseConnection(broker.fds.get()[i].fd);
+                                    broker.CloseConnection(fd);
                                     broker.fds.reset();
                                     broker.SetState(broker_states::started);
                                     break;
