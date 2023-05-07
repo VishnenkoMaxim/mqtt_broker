@@ -18,6 +18,7 @@
 #include "functions.h"
 #include "mqtt_protocol.h"
 #include "client.h"
+#include "command.h"
 
 using namespace std;
 using namespace libconfig;
@@ -89,6 +90,7 @@ private:
     unique_ptr<struct pollfd> fds;
     int port;
     shared_ptr<logger> lg;
+    Commands command;
 
     Broker() : current_clients(0), state(0), control_sock(-1) {};
 
@@ -99,7 +101,7 @@ private:
 
     int SendCommand(const char *buf, int buf_size);
     int ReadFixedHeader(int fd, FixedHeader &f_hed);
-    string GetControlPacketTypeName(const uint8_t _packet);
+    string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 public:
     friend void* ServerThread (void *arg);

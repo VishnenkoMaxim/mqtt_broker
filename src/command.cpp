@@ -16,8 +16,10 @@ void FdWriteCommand::Execute() {
 }
 
 void Commands::Add(const int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd){
+    pthread_mutex_lock(&mutex);
     commands.emplace_back(new FdWriteCommand(stream, fd, std::move(_cmd)));
-    if (commands.size() >= N) Execute();
+    pthread_mutex_unlock(&mutex);
+    if (N>0 && commands.size() >= N) Execute();
 }
 
 void Commands::Execute(){
@@ -29,11 +31,13 @@ void Commands::Execute(){
 }
 
 void Commands::PostActions(){
+    pthread_mutex_lock(&mutex);
     commands.clear();
+    pthread_mutex_unlock(&mutex);
 }
 
 void Commands::Exit(){
-    if (state == 0) Execute();
+    Execute();
     stream.reset();
 }
 

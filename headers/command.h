@@ -9,6 +9,7 @@
 #include <ctime>
 #include <queue>
 
+#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -23,7 +24,7 @@ class Writer {
 public:
     Writer()= default;
 
-    int Write(int fd, const shared_ptr<uint8_t>& buf, const uint32_t buf_len);
+    int Write(int fd, const shared_ptr<uint8_t>& buf, uint32_t buf_len);
 };
 
 class ICommand{
@@ -56,10 +57,15 @@ class Commands{
 private:
     vector<shared_ptr<ICommand>> commands;
     unsigned short N;
-    int state;
     shared_ptr<Writer> stream;
+    pthread_mutex_t mutex;
+
 public:
-    explicit Commands(const unsigned short n) : N(n), state(0) {
+    Commands() : N(0) {
+        stream = std::make_shared<Writer>();
+    }
+
+    explicit Commands(const unsigned short n) : N(n) {
         stream = std::make_shared<Writer>();
     }
 
