@@ -9,13 +9,15 @@ using namespace mqtt_protocol;
 class Client{
 private:
     string ip{};
-    string client_id{};
+    MqttStringEntity client_id;
+
     [[maybe_unused]] uint8_t state;
     uint8_t flags;
     uint16_t alive;
 public:
     MqttPropertyChain conn_properties;
-    explicit Client(string _ip) : ip(std::move(_ip)), state(0), flags(0), alive(0) {}
+
+    explicit Client(string _ip);
 
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
@@ -27,6 +29,8 @@ public:
     uint8_t WillQoSFlag() const;
     bool isWillFlag() const;
     bool isCleanFlag() const;
+
+    string GetID();
 
     ~Client(){
         conn_properties.~MqttPropertyChain();

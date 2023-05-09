@@ -1,12 +1,10 @@
 
 #include <iostream>
 #include <memory>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <arpa/inet.h>
 
 #include "mqtt_broker.h"
 
@@ -24,6 +22,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                 if (client_num == 0){
                     broker.SetState(broker_states::init);
                     broker.lg->info("Stop ServerThread");
+                    broker.Execute();
                     return nullptr;
                 }
                 client_num++; // for control socket
@@ -105,50 +104,13 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     }
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
-                                            auto pClient = broker.clients[fd];
-
-                                            ConnectVH con_vh;
-                                            uint32_t offset = 0;
-
-                                            con_vh.CopyFromNet(buf.get());
-                                            offset += sizeof(con_vh);
-                                            char name_tmp[5] = "";
-                                            memcpy(name_tmp, con_vh.name, 4);
-                                            broker.lg->debug(
-                                                    "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}",
-                                                    con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags,
-                                                    con_vh.alive);
-
-                                            pClient->SetConnAlive(con_vh.alive);
-                                            pClient->SetConnFlags(con_vh.conn_flags);
-                                            //read properties
-                                            int properties_len = 0;
-                                            uint8_t size = 0;
-
-                                            uint8_t stat = DeCodeVarInt(buf.get() + offset, properties_len, size);
-                                            if (stat != mqtt_err::ok) {
-                                                broker.lg->error("Read DeCodeVarInt error");
-                                                broker.CloseConnection(broker.fds.get()[i].fd);
-                                                broker.fds.reset();
-                                                broker.SetState(broker_states::started);
-                                                break;
-                                            }
-                                            broker.lg->debug("properties len:{}", properties_len);
-                                            offset += size;
-                                            uint32_t p_len = properties_len;
-                                            while (p_len > 0) {
-                                                uint8_t size_property;
-                                                auto property = CreateProperty(buf.get() + offset, size_property);
-                                                pClient->conn_properties.AddProperty(property);
-                                                p_len -= size_property;
-                                                offset += size_property;
-                                            }
-                                            //read ClientID
-                                            uint8_t id_len;
-                                            auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
-                                            if (id != nullptr){
-                                                pClient->SetID(id->GetString());
-                                            } else broker.lg->info("No ClientID provided");
+                                              int handle_stat = HandleMqttConnect(broker.clients[fd], buf, broker.lg);
+                                              if (handle_stat != mqtt_err::ok){
+                                                  broker.lg->error("handleConnect error");
+                                                  broker.CloseConnection(fd);
+                                                  broker.fds.reset();
+                                                  broker.SetState(broker_states::started);
+                                              }
                                         }; break;
 
                                         default : {
@@ -193,9 +155,11 @@ int Broker::AddClient(int sock, const string &_ip){
 void Broker::DelClient(int sock){
     lg->debug("DelClient");
     current_clients--;
+    lg->debug("Total cl_num: {}", current_clients);
     pthread_mutex_lock(&clients_mtx);
     clients.erase(sock);
     pthread_mutex_unlock(&clients_mtx);
+    lg->flush();
 }
 
 uint32_t Broker::GetClientCount() noexcept {
@@ -308,7 +272,7 @@ string Broker::GetControlPacketTypeName(const uint8_t _packet){
 }
 
 void Broker::CloseConnection(int fd){
-    lg->debug("Close connection");
+    lg->debug("Close connection fd:{}", fd);
     close(fd);
     DelClient(fd);
 }

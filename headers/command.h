@@ -54,11 +54,10 @@ public:
 };
 
 class Commands{
-private:
+protected:
     vector<shared_ptr<ICommand>> commands;
     unsigned short N;
     shared_ptr<Writer> stream;
-    pthread_mutex_t mutex;
 
 public:
     Commands() : N(0) {
@@ -69,10 +68,11 @@ public:
         stream = std::make_shared<Writer>();
     }
 
-    void Add(int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd);
+    void AddCommand(int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd);
     void Execute();
     void PostActions();
     void Exit();
 };
+
 
 #endif //MQTT_BROKER_SENDER_H

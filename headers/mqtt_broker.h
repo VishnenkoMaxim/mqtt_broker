@@ -79,7 +79,7 @@ public:
 
 ServerCfgData ReadConfig(const char *path, int &err);
 
-class Broker{
+class Broker : private Commands {
 private:
     pthread_mutex_t clients_mtx;
     unsigned int current_clients;
@@ -90,9 +90,8 @@ private:
     unique_ptr<struct pollfd> fds;
     int port;
     shared_ptr<logger> lg;
-    Commands command;
 
-    Broker() : current_clients(0), state(0), control_sock(-1) {};
+    Broker() : Commands(1), current_clients(0), state(0), control_sock(-1) {};
 
     Broker(const Broker& root)          = delete;
     Broker& operator=(const Broker&)    = delete;
@@ -124,5 +123,7 @@ public:
 
     void Start();
 };
+
+int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 
 #endif //MQTT_BROKER_H

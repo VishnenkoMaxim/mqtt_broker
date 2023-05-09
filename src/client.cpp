@@ -1,5 +1,9 @@
 #include "client.h"
 
+Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0){
+    //
+}
+
 void Client::SetConnFlags(uint8_t _flags){
     flags = _flags;
 }
@@ -32,4 +36,8 @@ bool Client::isCleanFlag() const {
 }
 void Client::SetID(const string& _id){
     client_id = _id;
+}
+
+string Client::GetID(){
+    return client_id.GetString();
 }

@@ -85,33 +85,24 @@ namespace mqtt_protocol{
         var_int_err
     };
 
-    struct FixedHeader{
+    class FixedHeader{
+    public:
         uint8_t first;
         uint32_t remaining_len;
 
-        FixedHeader() : first(0), remaining_len(0) {};
+        FixedHeader() noexcept;
+        explicit FixedHeader(uint8_t _first) noexcept;
 
-        [[nodiscard]] bool    isDUP() const {return first & 0x08;}
-        [[nodiscard]] uint8_t QoS() const {return first & 0x06;}
-        [[nodiscard]] bool    isRETAIN() const {return first & 0x01;}
-        [[nodiscard]] uint8_t GetType() const { return first>>4;}
-        [[nodiscard]] uint8_t GetFlags() const { return first & 0x0F; }
+        [[nodiscard]] bool    isDUP() const;
+        [[nodiscard]] uint8_t QoS() const;
+        [[nodiscard]] bool    isRETAIN() const;
+        [[nodiscard]] uint8_t GetType() const;
+        [[nodiscard]] uint8_t GetFlags() const;
+        [[nodiscard]] bool    isIdentifier() const;
+        [[nodiscard]] bool    isProperties() const;
 
-        [[nodiscard]] bool    isIdentifier() const {
-            uint8_t type = GetType();
-            if ((type >= PUBACK && type <= UNSUBACK) || (type == PUBLISH && QoS() > 0)){
-                return true;
-            }
-            return false;
-        }
+        void SetRemainingLen(uint32_t _len);
 
-        [[nodiscard]] bool    isProperties() const {
-            uint8_t type = GetType();
-            if ((type >= CONNECT && type <= UNSUBACK) || (type == DISCONNECT) || (type == AUTH)){
-                return true;
-            }
-            return false;
-        }
     };
 
     struct ConnectVH {
@@ -240,6 +231,7 @@ namespace mqtt_protocol{
         MqttStringEntity(MqttStringEntity&& _obj) noexcept;
         MqttStringEntity& operator=(const MqttStringEntity& _obj) noexcept;
         MqttStringEntity& operator=(MqttStringEntity&& _obj) noexcept;
+        MqttStringEntity& operator=(const string& _str) noexcept;
 
         [[nodiscard]] uint32_t Size() const override;
         uint8_t* GetData() override;
@@ -315,6 +307,7 @@ namespace mqtt_protocol{
         }
 
         [[nodiscard]] uint32_t Size() const override;
+        [[nodiscard]] uint32_t GetUint() const override;
         uint8_t* GetData() override;
 
         ~MqttVIntEntity() override {
@@ -342,6 +335,7 @@ namespace mqtt_protocol{
         uint32_t    GetUint() const override;
         string      GetString() const override;
         pair<string, string> GetStringPair() const override;
+        void        Serialize(uint8_t* buf_dst, uint32_t &size);
 
         ~MqttProperty() override {
             property->~MqttEntity();
@@ -354,10 +348,12 @@ namespace mqtt_protocol{
     public:
         MqttPropertyChain() = default;
 
-        void            AddProperty(const shared_ptr<MqttProperty>& entity);
-        uint32_t        Count();
+        void        AddProperty(const shared_ptr<MqttProperty>& entity);
+        uint32_t    Count();
+        uint16_t    GetSize();
         shared_ptr<MqttProperty>   GetProperty(uint8_t _id);
         shared_ptr<MqttProperty>   operator[](uint8_t _id);
+        void Serialize(uint8_t *buf, uint32_t &size);
 
         ~MqttPropertyChain() {
             for (auto &it : properties){
@@ -367,7 +363,9 @@ namespace mqtt_protocol{
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);
-    [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, int &value, uint8_t &size);
+    [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, uint32_t &value, uint8_t &size);
+    uint8_t               CodeVarInt(uint8_t *buf, uint32_t value, uint8_t &size);
+    [[nodiscard]] uint8_t GetVarIntSize(uint32_t value);
     [[nodiscard]] shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
     [[nodiscard]] shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
 }

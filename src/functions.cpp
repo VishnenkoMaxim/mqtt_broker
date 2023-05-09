@@ -124,3 +124,17 @@ uint32_t ConvertToHost4Bytes(const uint8_t* buf){
     memcpy(&val, buf, sizeof(val));
     return ntohl(val);
 }
+
+string GenRandom(const uint8_t len) {
+    static const char alphanum[] =
+            "0123456789"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+    std::string tmp_s;
+    tmp_s.reserve(len);
+
+    for (int i = 0; i < len; ++i) {
+        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    return tmp_s;
+}

@@ -103,4 +103,6 @@ public:
     using propagate_on_container_swap = std::true_type; //UB if std::false_type and a1 != a2;
 };
 
+std::string GenRandom(const uint8_t len);
+
 #endif //MQTT_BROKER_FUNCTIONS_H

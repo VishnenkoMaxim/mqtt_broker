@@ -14,7 +14,7 @@
 
 using namespace std;
 
-TEST(BasicTests, Test_read_config){
+TEST(BasicTests, Test_1){
     int err = 0;
     ServerCfgData cfg_data = ReadConfig(DEFAULT_CFG_FILE, err);
 
@@ -24,6 +24,32 @@ TEST(BasicTests, Test_read_config){
     EXPECT_EQ(cfg_data.log_file_path, "/home/logs/mqtt_broker.log");
     EXPECT_EQ(cfg_data.level, 1);
     EXPECT_EQ(cfg_data.port, 1883);
+}
+
+TEST(BasicTests, Test_2){
+    uint32_t val = 0x7F;
+    uint32_t val2 = 0xBF;
+    uint32_t val3 = 0xBF0F;
+    uint32_t val4 = 0xBFFF0A;
+    uint8_t size;
+
+    uint8_t buf[8];
+    bzero(buf, 8);
+
+    CodeVarInt(buf, val2, size);
+    EXPECT_EQ(GetVarIntSize(val), 1);
+    EXPECT_EQ(GetVarIntSize(val2), 2);
+    EXPECT_EQ(GetVarIntSize(val2), size);
+
+    CodeVarInt(buf, val4, size);
+    EXPECT_EQ(GetVarIntSize(val4), 4);
+    EXPECT_EQ(GetVarIntSize(val4), size);
+
+    uint32_t val5 = 0;
+    uint8_t size5 = 0;
+    int ret = DeCodeVarInt(buf, val5, size5);
+    EXPECT_EQ(ret, mqtt_err::ok);
+    EXPECT_EQ(val4, val5);
 }
 
 TEST(MqttEntity, Test_1){
@@ -119,6 +145,22 @@ TEST(MqttEntity, Test_6){
     MqttByteEntity pp(&var);
     MqttByteEntity pp2 = std::move(pp);
     EXPECT_EQ(pp2.GetUint(), var);
+
+    delete entity;
+}
+
+TEST(MqttEntity, Test_7){
+    uint32_t val = 0xBFFF0A;
+    uint8_t size;
+    uint8_t buf[8];
+    bzero(buf, 8);
+
+    memcpy(buf, &val, sizeof(val));
+    //CodeVarInt(buf, val, size);
+    auto *entity = new MqttVIntEntity(buf);
+    EXPECT_EQ(entity->GetType(), mqtt_data_type::variable_int);
+    EXPECT_EQ(val, entity->GetUint());
+    EXPECT_EQ(GetVarIntSize(val), entity->Size());
 
     delete entity;
 }
@@ -236,7 +278,6 @@ TEST(MqttPropertiesChain, Test_2){
                                                                                                       MqttStringEntity(strlen(p_str_2), (uint8_t *) p_str_2)))));
     p_chain->AddProperty(make_shared<MqttProperty>(6, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
 
-
     EXPECT_EQ(p_chain->GetProperty(1)->GetId(), 1);
     EXPECT_EQ(p_chain->GetProperty(1)->GetType(), mqtt_data_type::byte);
     EXPECT_EQ(p_chain->GetProperty(1)->Size(), sizeof(var));
@@ -268,6 +309,37 @@ TEST(MqttPropertiesChain, Test_2){
     EXPECT_EQ(p_chain->GetProperty(6)->Size(), 2 + sizeof(buf));
     EXPECT_EQ(memcmp(p_chain->GetProperty(6)->GetData(), buf, sizeof(buf)), 0);
 
+    delete p_chain;
+}
+
+TEST(MqttPropertiesChain, Test_3){
+    uint8_t var = 0xFA;
+    uint16_t var_2 = 0xFFFA;
+    uint32_t var_3 = 324;
+    char str[] = "test_var";
+    char p_str_1[] = "test_var_1";
+    char p_str_2[] = "test_var_2";
+    uint8_t buf[10];
+
+
+    uint32_t val = 0xBFFF0A;
+    uint8_t size;
+    uint8_t buf2[8];
+    bzero(buf2, 8);
+
+    memcpy(buf, &val, sizeof(val));
+
+    auto p_chain = new MqttPropertyChain;
+    p_chain->AddProperty(make_shared<MqttProperty>(1, shared_ptr<MqttEntity>(new MqttByteEntity(&var))));
+    p_chain->AddProperty(make_shared<MqttProperty>(2, shared_ptr<MqttEntity>(new MqttTwoByteEntity((uint8_t *) &var_2))));
+    p_chain->AddProperty(make_shared<MqttProperty>(3, shared_ptr<MqttEntity>(new MqttFourByteEntity((uint8_t *) &var_3))));
+    p_chain->AddProperty(make_shared<MqttProperty>(4, shared_ptr<MqttEntity>(new MqttStringEntity(strlen(str), (uint8_t *) str))));
+    p_chain->AddProperty(make_shared<MqttProperty>(5, shared_ptr<MqttEntity>(new MqttStringPairEntity(MqttStringEntity(strlen(p_str_1), (uint8_t *) p_str_1),
+                                                                                                      MqttStringEntity(strlen(p_str_2), (uint8_t *) p_str_2)))));
+    p_chain->AddProperty(make_shared<MqttProperty>(6, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
+    p_chain->AddProperty(make_shared<MqttProperty>(7, shared_ptr<MqttEntity>(new MqttVIntEntity(buf))));
+
+    EXPECT_EQ(p_chain->GetSize(), 65);
     delete p_chain;
 }
 
@@ -406,7 +478,7 @@ TEST(Command, Test_1){
     uint32_t size = 16;
     memcpy(buf.get(), "test 123", 8);
 
-    command.Add(fd, make_tuple(size, buf));
+    command.AddCommand(fd, make_tuple(size, buf));
     close(fd);
     fd = open(file_name.c_str(), O_RDONLY);
     EXPECT_GE(fd, 0);
