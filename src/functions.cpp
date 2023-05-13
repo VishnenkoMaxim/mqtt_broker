@@ -93,14 +93,13 @@ int ReadData(int fd, uint8_t* data, int size, unsigned int timeout){
     fd_set rfd;
 
     if( fd < 0 || !data || size <= 0 ) return 0;
-    if(size <= 0) return 0;
     for(co = 0; ;){
         tv.tv_sec = timeout;
         tv.tv_usec = 0;
         FD_ZERO(&rfd);
         FD_SET( fd, &rfd );
         //usleep(10);
-        rval = select(fd + 1, &rfd, 0, 0, &tv);
+        rval = select(fd + 1, &rfd, nullptr, nullptr, &tv);
         if( rval < 0 ) return -1;
         if (rval == 0) return co;
 

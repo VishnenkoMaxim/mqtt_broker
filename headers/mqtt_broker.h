@@ -126,4 +126,6 @@ public:
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 
+int SendMqttConnact(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
+
 #endif //MQTT_BROKER_H

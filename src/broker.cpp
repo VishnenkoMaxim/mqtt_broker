@@ -110,7 +110,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                                   broker.CloseConnection(fd);
                                                   broker.fds.reset();
                                                   broker.SetState(broker_states::started);
+                                                  break;
                                               }
+
                                         }; break;
 
                                         default : {

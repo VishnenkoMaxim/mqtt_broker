@@ -41,6 +41,17 @@ void FixedHeader::SetRemainingLen(uint32_t _len){
     remaining_len = _len;
 }
 
+void FixedHeader::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint8_t size = 0;
+    memcpy(dst_buf, &first, sizeof(first));
+    CodeVarInt(dst_buf + sizeof(first), remaining_len, size);
+    offset += sizeof(first) + size;
+}
+
+uint32_t FixedHeader::Size() const{
+    return GetVarIntSize(remaining_len) + sizeof(first);
+}
+
 [[nodiscard]] uint8_t mqtt_protocol::ReadVariableInt(const int fd, int &value){
     uint8_t single_byte;
     uint32_t multiplayer = 1;
@@ -130,6 +141,18 @@ MqttByteEntity::MqttByteEntity(const MqttByteEntity& _obj) noexcept {
     type = _obj.type;
 }
 
+MqttByteEntity::MqttByteEntity(const uint8_t value) {
+    type = mqtt_data_type::byte;
+    data = shared_ptr<uint8_t>(new uint8_t);
+    memcpy(data.get(), &value, sizeof(uint8_t));
+}
+
+MqttByteEntity::MqttByteEntity(const uint8_t* _data){
+    type = mqtt_data_type::byte;
+    data = shared_ptr<uint8_t>(new uint8_t);
+    memcpy(data.get(), _data, sizeof(uint8_t));
+}
+
 MqttByteEntity::MqttByteEntity(MqttByteEntity&& _obj) noexcept{
     data = _obj.data;
     type = _obj.type;
@@ -157,6 +180,23 @@ uint8_t* MqttByteEntity::GetData(){
 
 uint32_t MqttByteEntity::GetUint() const {
     return (uint32_t) *data;
+}
+
+void MqttByteEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    memcpy(dst_buf, GetData(), Size());
+    offset += Size();
+}
+
+MqttTwoByteEntity::MqttTwoByteEntity(const uint8_t * _data){
+    type = mqtt_data_type::two_byte;
+    data = shared_ptr<uint16_t>(new uint16_t);
+    memcpy(data.get(), _data, 2);
+}
+
+MqttTwoByteEntity::MqttTwoByteEntity(const uint16_t value){
+    type = mqtt_data_type::two_byte;
+    data = shared_ptr<uint16_t>(new uint16_t);
+    memcpy(data.get(), &value, 2);
 }
 
 MqttTwoByteEntity::MqttTwoByteEntity(const MqttTwoByteEntity& _obj) noexcept{
@@ -195,6 +235,24 @@ uint32_t MqttTwoByteEntity::GetUint() const {
     return (uint32_t) *data;
 }
 
+void MqttTwoByteEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint16_t raw_val = htons((uint16_t) GetUint());
+    memcpy(dst_buf, &raw_val, Size());
+    offset += Size();
+}
+
+MqttFourByteEntity::MqttFourByteEntity(const uint8_t * _data){
+    type = mqtt_data_type::four_byte;
+    data = shared_ptr<uint32_t>(new uint32_t);
+    memcpy(data.get(), _data, 4);
+}
+
+MqttFourByteEntity::MqttFourByteEntity(const uint32_t value){
+    type = mqtt_data_type::four_byte;
+    data = shared_ptr<uint32_t>(new uint32_t);
+    memcpy(data.get(), &value, 4);
+}
+
 MqttFourByteEntity::MqttFourByteEntity(const MqttFourByteEntity& _obj) noexcept{
     data = std::make_shared<std::uint32_t>(_obj.GetUint());
     type = _obj.type;
@@ -229,6 +287,12 @@ uint8_t* MqttFourByteEntity::GetData(){
 
 uint32_t MqttFourByteEntity::GetUint() const {
     return (uint32_t) *data;
+}
+
+void MqttFourByteEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t raw_val = htonl(GetUint());
+    memcpy(dst_buf, &raw_val, Size());
+    offset += Size();
 }
 
 MqttStringEntity::MqttStringEntity(const MqttStringEntity& _obj) noexcept {
@@ -278,6 +342,20 @@ string MqttStringEntity::GetString() const {
     return *data;
 }
 
+void MqttStringEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint16_t len = htons(data->size());
+    memcpy(dst_buf, &len, sizeof(len));
+    memcpy(dst_buf + sizeof(len), data->c_str(), data->size());
+    offset += Size();
+}
+
+MqttBinaryDataEntity::MqttBinaryDataEntity(const uint16_t _len, const uint8_t * _data){
+    size = _len;
+    type = mqtt_data_type::binary_data;
+    data = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
+    memcpy(data.get(), _data, size);
+}
+
 MqttBinaryDataEntity::MqttBinaryDataEntity(const MqttBinaryDataEntity& _obj) noexcept{
     size = _obj.size;
     data = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
@@ -317,6 +395,13 @@ uint32_t MqttBinaryDataEntity::Size() const {
 
 uint8_t* MqttBinaryDataEntity::GetData(){
     return (uint8_t *) data.get();
+}
+
+void MqttBinaryDataEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint16_t len = htons(size);
+    memcpy(dst_buf, &len, sizeof(len));
+    memcpy(dst_buf + sizeof(len), data.get(), size);
+    offset += Size();
 }
 
 MqttStringPairEntity::MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept{
@@ -360,6 +445,12 @@ pair<string, string> MqttStringPairEntity::GetStringPair() const {
     return pair{(const_cast<MqttStringPairEntity *>(this))->GetPair()->first.GetString(), (const_cast<MqttStringPairEntity *>(this))->GetPair()->second.GetString()};
 }
 
+void MqttStringPairEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    auto pair = GetPair();
+    pair->first.Serialize(dst_buf, offset);
+    pair->second.Serialize(dst_buf + pair->first.Size(), offset);
+}
+
 uint32_t MqttVIntEntity::GetUint() const {
     return *data;
 }
@@ -370,6 +461,12 @@ uint32_t MqttVIntEntity::Size() const {
 
 uint8_t* MqttVIntEntity::GetData(){
     return (uint8_t *) data.get();
+};
+
+void MqttVIntEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint8_t size = 0;
+    CodeVarInt(dst_buf, *data, size);
+    offset += size;
 };
 
 shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttStringPairEntity::GetPair(){
@@ -408,13 +505,11 @@ pair<string, string> MqttProperty::GetStringPair() const {
     return property->GetStringPair();
 }
 
-void MqttProperty::Serialize(uint8_t* buf_dst, uint32_t &size) {
-    size = 0;
+void MqttProperty::Serialize(uint8_t* buf_dst, uint32_t &offset) {
     uint8_t _id = GetId();
     memcpy(buf_dst, &_id, sizeof(_id));
-    size++;
-    memcpy(buf_dst + size, GetData(), Size());
-    size += Size();
+    offset++;
+    property->Serialize(buf_dst + sizeof(_id), offset);
 }
 
 void MqttPropertyChain::AddProperty(const shared_ptr<MqttProperty>& entity){
@@ -434,7 +529,7 @@ shared_ptr<MqttProperty>   MqttPropertyChain::operator[](uint8_t _id){
     return properties[_id];
 }
 
-uint16_t MqttPropertyChain::GetSize(){
+uint16_t MqttPropertyChain::GetSize() const {
     uint16_t size = 0;
     for(const auto &it: properties){
         size += it.second->Size() + 1; //+1 because property_id
@@ -442,9 +537,12 @@ uint16_t MqttPropertyChain::GetSize(){
     return size;
 }
 
-void MqttPropertyChain::Serialize(uint8_t *buf, uint32_t &size){
-    uint32_t offset = 0;
-    //
+void MqttPropertyChain::Serialize(uint8_t *buf, uint32_t &offset){
+    uint32_t size = 0;
+    for(const auto &it: properties){
+        it.second->Serialize(buf + size, offset);
+        size += it.second->Size() + 1; //+1 because property_id
+    }
 }
 
 void ConnectVH::CopyFromNet(const uint8_t *buf){
@@ -453,6 +551,56 @@ void ConnectVH::CopyFromNet(const uint8_t *buf){
     prot_name_len = tmp;
     tmp = ntohs(alive);
     alive = tmp;
+}
+
+uint16_t ConnectVH::GetSize() {
+    return sizeof(prot_name_len) + sizeof(version) + 4 + sizeof(conn_flags) + sizeof(alive);
+}
+
+ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc) {
+    conn_acknowledge_flags = _caf;
+    reason_code = _rc;
+}
+
+uint16_t ConnactVH::GetSize() {
+    return sizeof(conn_acknowledge_flags) + sizeof(reason_code);
+}
+
+VariableHeader::VariableHeader(const ConnectVH &_vh){
+    type = mqtt_pack_type::CONNECT;
+    data.reset(static_cast<ConnectVH *> (new ConnectVH(_vh)));
+}
+
+VariableHeader::VariableHeader(const ConnactVH &_vh){
+    type = mqtt_pack_type::CONNACK;
+    data.reset(static_cast<ConnactVH *> (new ConnactVH(_vh)));
+}
+
+uint16_t VariableHeader::GetSize() const {
+    if (type == mqtt_pack_type::CONNECT) return (static_cast<ConnectVH *> (data.get()))->GetSize();
+    else return (static_cast<ConnactVH *> (data.get()))->GetSize();
+}
+
+void VariableHeader::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    if (type == mqtt_pack_type::CONNECT) {
+        memcpy(dst_buf, data.get(), (static_cast<ConnectVH *> (data.get()))->GetSize());
+        offset += static_cast<ConnectVH *> (data.get())->GetSize();
+    } else {
+        memcpy(dst_buf, data.get(), (static_cast<ConnactVH *> (data.get()))->GetSize());
+        offset += static_cast<ConnactVH *> (data.get())->GetSize();
+    }
+}
+
+VariableHeader::VariableHeader(VariableHeader&& _obj) noexcept {
+    data = _obj.data;
+    type = _obj.type;
+    _obj.data = nullptr;
+}
+
+VariableHeader::VariableHeader(const VariableHeader& _obj) {
+    type = _obj.type;
+    data = shared_ptr<uint8_t> (new uint8_t[_obj.GetSize()]);
+    memcpy(data.get(), _obj.data.get(), _obj.GetSize());
 }
 
 shared_ptr<MqttStringEntity> mqtt_protocol::CreateMqttStringEntity(const uint8_t *buf, uint8_t &size){
@@ -549,3 +697,29 @@ shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8
     }
 }
 
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(FixedHeader &fh, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size){
+    shared_ptr<uint8_t> ptr;
+    size = 0;
+
+    uint32_t property_size = p_chain.GetSize();
+    size += property_size + GetVarIntSize(property_size) + vh.GetSize();
+    fh.remaining_len = size;
+    size += fh.Size();
+
+    ptr = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
+    if (ptr == nullptr){
+        size = 0;
+        return nullptr;
+    }
+
+    uint32_t offset = 0;
+    fh.Serialize(ptr.get(), offset);
+    vh.Serialize(ptr.get() + offset, offset);
+    uint8_t pr_size_len;
+    CodeVarInt(ptr.get() + offset, property_size, pr_size_len);
+    offset += pr_size_len;
+
+    p_chain.Serialize(ptr.get() + offset, offset);
+    assert(size == offset);
+    return ptr;
+}

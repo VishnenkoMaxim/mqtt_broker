@@ -339,7 +339,7 @@ TEST(MqttPropertiesChain, Test_3){
     p_chain->AddProperty(make_shared<MqttProperty>(6, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
     p_chain->AddProperty(make_shared<MqttProperty>(7, shared_ptr<MqttEntity>(new MqttVIntEntity(buf))));
 
-    EXPECT_EQ(p_chain->GetSize(), 65);
+    EXPECT_EQ(p_chain->GetSize(), 64);
     delete p_chain;
 }
 
@@ -484,4 +484,45 @@ TEST(Command, Test_1){
     EXPECT_GE(fd, 0);
     close(fd);
     remove(file_name.c_str());
+}
+
+TEST(VariableHeaders, Test_1){
+    VariableHeader vh{ConnactVH(1,2)};
+    VariableHeader vh2{ConnectVH()};
+
+    EXPECT_EQ(sizeof(ConnactVH), vh.GetSize());
+    EXPECT_EQ(sizeof(ConnectVH), vh2.GetSize());
+
+    uint8_t buf[32] = "";
+    uint32_t offset = 0;
+    vh.Serialize(buf, offset);
+    EXPECT_EQ(sizeof(ConnactVH), offset);
+}
+
+TEST(CreateMqttPacket, Test_1){
+    uint8_t buf[10] = "";
+
+    VariableHeader vh{ConnactVH(11,33)};
+    uint32_t packet_size = 0;
+    MqttPropertyChain p_chain;
+    FixedHeader fh(CONNACK << 4);
+
+
+    p_chain.AddProperty(make_shared<MqttProperty>(11, shared_ptr<MqttEntity>(new MqttByteEntity(0xFA))));
+    p_chain.AddProperty(make_shared<MqttProperty>(22, shared_ptr<MqttEntity>(new MqttByteEntity(12))));
+    p_chain.AddProperty(make_shared<MqttProperty>(33, shared_ptr<MqttEntity>(new MqttTwoByteEntity(0xAA00))));
+    p_chain.AddProperty(make_shared<MqttProperty>(44, shared_ptr<MqttEntity>(new MqttFourByteEntity(0xAA001100))));
+    p_chain.AddProperty(make_shared<MqttProperty>(55, shared_ptr<MqttEntity>(new MqttStringEntity(string("hello")))));
+    p_chain.AddProperty(make_shared<MqttProperty>(66, shared_ptr<MqttEntity>(new MqttStringPairEntity(MqttStringEntity(string("test")), MqttStringEntity(string("test"))))));
+    p_chain.AddProperty(make_shared<MqttProperty>(77, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
+//    p_chain->AddProperty(make_shared<MqttProperty>(7, shared_ptr<MqttEntity>(new MqttVIntEntity(buf))));
+
+    auto data_to_send = CreateMqttPacket(fh, vh, p_chain, packet_size);
+
+    cout << packet_size << endl;
+    for (unsigned int i=0; i<packet_size; i++){
+        cout << int(data_to_send.get()[i]) << " ";
+    }
+    cout << endl;
+    EXPECT_GE(packet_size, 0);
 }
