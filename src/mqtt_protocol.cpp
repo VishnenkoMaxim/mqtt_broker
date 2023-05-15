@@ -451,6 +451,18 @@ void MqttStringPairEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
     pair->second.Serialize(dst_buf + pair->first.Size(), offset);
 }
 
+MqttVIntEntity::MqttVIntEntity(const uint8_t* _data){
+    type = mqtt_data_type::variable_int;
+    data = shared_ptr<uint32_t>(new uint32_t);
+    memcpy(data.get(), _data, sizeof(uint32_t));
+}
+
+MqttVIntEntity::MqttVIntEntity(const uint32_t value){
+    type = mqtt_data_type::variable_int;
+    data = shared_ptr<uint32_t>(new uint32_t);
+    memcpy(data.get(), &value, sizeof(uint32_t));
+}
+
 uint32_t MqttVIntEntity::GetUint() const {
     return *data;
 }

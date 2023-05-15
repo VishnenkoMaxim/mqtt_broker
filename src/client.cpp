@@ -41,3 +41,7 @@ void Client::SetID(const string& _id){
 string Client::GetID(){
     return client_id.GetString();
 }
+
+string& Client::GetIP(){
+    return ip;
+}

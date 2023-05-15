@@ -58,6 +58,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                     broker.SetState(broker_states::started);
                 }
                 broker.lg->debug("Have data");
+                list<int> fd_to_delete;
                 for(unsigned int i=0; i<client_num; i++) {
                     if (broker.fds.get()[i].revents != 0) {
                         broker.lg->debug("Event: fd:{} events:{}{}{}", broker.fds.get()[i].fd,
@@ -112,7 +113,21 @@ void* ServerThread([[maybe_unused]] void *arg){
                                                   broker.SetState(broker_states::started);
                                                   break;
                                               }
+                                              FixedHeader answer_fh(CONNACK << 4);
+                                              VariableHeader answer_vh{ConnactVH(0,mqtt_reason_code::success)};
+                                              uint32_t answer_size;
+                                              MqttPropertyChain p_chain;
+                                              string id(broker.clients[fd]->GetID());
+                                              p_chain.AddProperty(make_shared<MqttProperty>(mqtt_property_id::assigned_client_identifier,
+                                                                                            shared_ptr<MqttEntity>(new MqttStringEntity(id))));
+                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(answer_fh, answer_vh, p_chain, answer_size)));
+                                        }; break;
 
+                                        case mqtt_pack_type::DISCONNECT : {
+                                            broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
+                                            broker.CloseConnection(fd);
+                                            broker.fds.reset();
+                                            broker.SetState(broker_states::started);
                                         }; break;
 
                                         default : {
@@ -134,6 +149,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                             break;
                         }
                     }
+                    if (broker.state != broker_states::wait) break;
                 }
                 broker.lg->flush();
             }; break;

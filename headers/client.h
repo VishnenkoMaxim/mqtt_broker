@@ -31,6 +31,7 @@ public:
     bool isCleanFlag() const;
 
     string GetID();
+    string& GetIP();
 
     ~Client(){
         conn_properties.~MqttPropertyChain();

@@ -507,7 +507,6 @@ TEST(CreateMqttPacket, Test_1){
     MqttPropertyChain p_chain;
     FixedHeader fh(CONNACK << 4);
 
-
     p_chain.AddProperty(make_shared<MqttProperty>(11, shared_ptr<MqttEntity>(new MqttByteEntity(0xFA))));
     p_chain.AddProperty(make_shared<MqttProperty>(22, shared_ptr<MqttEntity>(new MqttByteEntity(12))));
     p_chain.AddProperty(make_shared<MqttProperty>(33, shared_ptr<MqttEntity>(new MqttTwoByteEntity(0xAA00))));
@@ -515,14 +514,14 @@ TEST(CreateMqttPacket, Test_1){
     p_chain.AddProperty(make_shared<MqttProperty>(55, shared_ptr<MqttEntity>(new MqttStringEntity(string("hello")))));
     p_chain.AddProperty(make_shared<MqttProperty>(66, shared_ptr<MqttEntity>(new MqttStringPairEntity(MqttStringEntity(string("test")), MqttStringEntity(string("test"))))));
     p_chain.AddProperty(make_shared<MqttProperty>(77, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
-//    p_chain->AddProperty(make_shared<MqttProperty>(7, shared_ptr<MqttEntity>(new MqttVIntEntity(buf))));
+    p_chain.AddProperty(make_shared<MqttProperty>(88, shared_ptr<MqttEntity>(new MqttVIntEntity(0x11AA))));
 
     auto data_to_send = CreateMqttPacket(fh, vh, p_chain, packet_size);
-
-    cout << packet_size << endl;
-    for (unsigned int i=0; i<packet_size; i++){
-        cout << int(data_to_send.get()[i]) << " ";
-    }
-    cout << endl;
+//
+//    cout << packet_size << endl;
+//    for (unsigned int i=0; i<packet_size; i++){
+//        cout << int(data_to_send.get()[i]) << " ";
+//    }
+//    cout << endl;
     EXPECT_GE(packet_size, 0);
 }

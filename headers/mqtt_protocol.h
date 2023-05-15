@@ -68,6 +68,31 @@ namespace mqtt_protocol{
         shared_subscription_available = 0x2A
     };
 
+    enum mqtt_reason_code : uint8_t{
+        success,
+        unspecified_error = 0x80,
+        malformed_error,
+        protocol_error,
+        imp_specific_error,
+        unsupported_protocol_version,
+        client_identifier_not_valid,
+        bad_user_name_passwd,
+        not_authorized,
+        server_unavailable,
+        server_busy,
+        banned,
+        bad_authentication_method = 0x8C,
+        topic_name_invalid = 0x90,
+        packet_too_large = 0x95,
+        quota_exceeded = 0x97,
+        payload_format_invalid = 0x99,
+        retain_not_supported,
+        qos_not_supported,
+        use_another_server,
+        server_moved,
+        connection_rate_exceeded = 0x9F
+    };
+
     enum mqtt_data_type : uint8_t {
         undefined,
         byte,
@@ -317,11 +342,8 @@ namespace mqtt_protocol{
     public:
         MqttVIntEntity() = delete;
 
-        explicit MqttVIntEntity(const uint8_t* _data){
-            type = mqtt_data_type::variable_int;
-            data = shared_ptr<uint32_t>(new uint32_t);
-            memcpy(data.get(), _data, sizeof(uint32_t));
-        }
+        explicit MqttVIntEntity(const uint8_t* _data);
+        explicit MqttVIntEntity(const uint32_t value);
 
         [[nodiscard]] uint32_t Size() const override;
         [[nodiscard]] uint32_t GetUint() const override;
