@@ -709,9 +709,10 @@ shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8
     }
 }
 
-shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(FixedHeader &fh, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size){
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size){
     shared_ptr<uint8_t> ptr;
     size = 0;
+    FixedHeader fh(pack_type << 4);
 
     uint32_t property_size = p_chain.GetSize();
     size += property_size + GetVarIntSize(property_size) + vh.GetSize();

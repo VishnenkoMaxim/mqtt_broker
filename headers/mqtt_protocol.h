@@ -409,7 +409,7 @@ namespace mqtt_protocol{
     [[nodiscard]] shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
     [[nodiscard]] shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
 
-    shared_ptr<uint8_t> CreateMqttPacket(FixedHeader &fh, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size);
+    shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size);
 }
 
 #endif //MQTT_BROKER_MQTT_PROTOCOL_H

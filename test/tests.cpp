@@ -505,7 +505,6 @@ TEST(CreateMqttPacket, Test_1){
     VariableHeader vh{ConnactVH(11,33)};
     uint32_t packet_size = 0;
     MqttPropertyChain p_chain;
-    FixedHeader fh(CONNACK << 4);
 
     p_chain.AddProperty(make_shared<MqttProperty>(11, shared_ptr<MqttEntity>(new MqttByteEntity(0xFA))));
     p_chain.AddProperty(make_shared<MqttProperty>(22, shared_ptr<MqttEntity>(new MqttByteEntity(12))));
@@ -516,7 +515,7 @@ TEST(CreateMqttPacket, Test_1){
     p_chain.AddProperty(make_shared<MqttProperty>(77, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
     p_chain.AddProperty(make_shared<MqttProperty>(88, shared_ptr<MqttEntity>(new MqttVIntEntity(0x11AA))));
 
-    auto data_to_send = CreateMqttPacket(fh, vh, p_chain, packet_size);
+    auto data_to_send = CreateMqttPacket(CONNACK, vh, p_chain, packet_size);
 //
 //    cout << packet_size << endl;
 //    for (unsigned int i=0; i<packet_size; i++){

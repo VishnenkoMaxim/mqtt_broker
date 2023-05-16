@@ -81,9 +81,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             broker.SetState(broker_states::started);
                                             close(data_socket);
                                             break;
-                                        } else {
-                                            broker.lg->warn("Ignore command. Unknown command in command socket.");
-                                        }
+                                        } else  broker.lg->warn("Ignore command. Unknown command in command socket.");
                                     } else broker.lg->error("data_socket read error");
                                     close(data_socket);
                                 } else broker.lg->error("control socket accept error");
@@ -98,36 +96,29 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     broker.lg->debug("remaining_len:{}", f_head.remaining_len);
                                     if (ret != (int) f_head.remaining_len){
                                         broker.lg->error("Read error. Read {} bytes instead of {}", ret, f_head.remaining_len);
-                                        broker.CloseConnection(fd);
-                                        broker.fds.reset();
-                                        broker.SetState(broker_states::started);
-                                        break;
+                                        fd_to_delete.push_back(fd);
+                                        continue;
                                     }
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
                                               int handle_stat = HandleMqttConnect(broker.clients[fd], buf, broker.lg);
                                               if (handle_stat != mqtt_err::ok){
                                                   broker.lg->error("handleConnect error");
-                                                  broker.CloseConnection(fd);
-                                                  broker.fds.reset();
-                                                  broker.SetState(broker_states::started);
+                                                  fd_to_delete.push_back(fd);
                                                   break;
                                               }
-                                              FixedHeader answer_fh(CONNACK << 4);
                                               VariableHeader answer_vh{ConnactVH(0,mqtt_reason_code::success)};
                                               uint32_t answer_size;
                                               MqttPropertyChain p_chain;
                                               string id(broker.clients[fd]->GetID());
                                               p_chain.AddProperty(make_shared<MqttProperty>(mqtt_property_id::assigned_client_identifier,
                                                                                             shared_ptr<MqttEntity>(new MqttStringEntity(id))));
-                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(answer_fh, answer_vh, p_chain, answer_size)));
+                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(mqtt_pack_type::CONNACK, answer_vh, p_chain, answer_size)));
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {
                                             broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
-                                            broker.CloseConnection(fd);
-                                            broker.fds.reset();
-                                            broker.SetState(broker_states::started);
+                                            fd_to_delete.push_back(fd);
                                         }; break;
 
                                         default : {
@@ -135,21 +126,22 @@ void* ServerThread([[maybe_unused]] void *arg){
                                         }
                                     }
                                 } else {
-                                    broker.CloseConnection(fd);
-                                    broker.fds.reset();
-                                    broker.SetState(broker_states::started);
-                                    break;
+                                    broker.lg->error("Mqtt protocol error. Can't read FixedHeader");
+                                    fd_to_delete.push_back(fd);
                                 }
                             }
                         } else {
                             broker.lg->debug("client closed socket fd:{}\n", broker.fds.get()[i].fd);
-                            broker.CloseConnection(broker.fds.get()[i].fd);
-                            broker.fds.reset();
-                            broker.SetState(broker_states::started);
-                            break;
+                            fd_to_delete.push_back(broker.fds.get()[i].fd);
                         }
                     }
-                    if (broker.state != broker_states::wait) break;
+                }
+                if (!fd_to_delete.empty()){
+                    broker.SetState(broker_states::started);
+                    for(const auto &it : fd_to_delete){
+                        broker.CloseConnection(it);
+                    }
+                    broker.fds.reset();
                 }
                 broker.lg->flush();
             }; break;
