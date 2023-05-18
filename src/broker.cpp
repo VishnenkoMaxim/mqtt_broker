@@ -14,10 +14,13 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
 void* ServerThread([[maybe_unused]] void *arg){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start ServerThread");
+    vector<struct pollfd> vec_fds;
     while(true){
         switch (broker.state){
             case broker_states::started : {
                 broker.lg->debug("state started");
+                vec_fds.clear();
+                vec_fds.reserve(10);
                 uint32_t client_num = broker.GetClientCount();
                 if (client_num == 0){
                     broker.SetState(broker_states::init);
@@ -26,21 +29,12 @@ void* ServerThread([[maybe_unused]] void *arg){
                     return nullptr;
                 }
                 client_num++; // for control socket
-                broker.fds.reset(static_cast<struct pollfd*>(::operator new(client_num*sizeof(struct pollfd))));
-                int i=0;
                 for(auto const &it : broker.clients){
-                    struct pollfd tmp_fd;
-                    tmp_fd.fd = it.first;
-                    tmp_fd.events = POLLIN;
-                    tmp_fd.revents = 0;
-                    memcpy(broker.fds.get() + i, &tmp_fd, sizeof(tmp_fd));
-                    i++;
+                    struct pollfd tmp_fd{it.first, POLLIN, 0};
+                    vec_fds.push_back(tmp_fd);
                 }
-                struct pollfd tmp_fd_control;
-                tmp_fd_control.fd = broker.control_sock;
-                tmp_fd_control.events = POLLIN;
-                tmp_fd_control.revents = 0;
-                memcpy(broker.fds.get() + i, &tmp_fd_control, sizeof(tmp_fd_control));
+                struct pollfd tmp_fd_control{broker.control_sock, POLLIN, 0};
+                vec_fds.push_back(tmp_fd_control);
                 broker.SetState(broker_states::wait);
                 broker.lg->flush();
             }; break;
@@ -51,7 +45,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                 uint32_t client_num = broker.GetClientCount();
                 broker.lg->debug("Waiting for the events..."); broker.lg->flush();
                 client_num++;
-                ready = poll(broker.fds.get(), client_num, -1);
+                ready = poll(vec_fds.data(), client_num, -1);
                 if (ready == -1){
                     broker.lg->critical("poll error");
                     sleep(1);
@@ -60,15 +54,15 @@ void* ServerThread([[maybe_unused]] void *arg){
                 broker.lg->debug("Have data");
                 list<int> fd_to_delete;
                 for(unsigned int i=0; i<client_num; i++) {
-                    if (broker.fds.get()[i].revents != 0) {
-                        broker.lg->debug("Event: fd:{} events:{}{}{}", broker.fds.get()[i].fd,
-                                  (broker.fds.get()[i].revents & POLLIN) ? "POLLIN " : "",
-                                  (broker.fds.get()[i].revents & POLLHUP) ? "POLLHUP " : "",
-                                  (broker.fds.get()[i].revents & POLLERR) ? "POLLERR " : "");
+                    if (vec_fds[i].revents != 0) {
+                        broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
+                                  (vec_fds[i].revents & POLLIN) ? "POLLIN " : "",
+                                  (vec_fds[i].revents & POLLHUP) ? "POLLHUP " : "",
+                                  (vec_fds[i].revents & POLLERR) ? "POLLERR " : "");
 
-                        if (broker.fds.get()[i].revents & POLLIN) {
-                            broker.fds.get()[i].revents = 0;
-                            if (broker.fds.get()[i].fd == broker.control_sock){
+                        if (vec_fds[i].revents & POLLIN) {
+                            vec_fds[i].revents = 0;
+                            if (vec_fds[i].fd == broker.control_sock){
                                 broker.lg->debug("Got control command");
                                 int data_socket = accept(broker.control_sock, NULL, NULL);
                                 if (data_socket != -1) {
@@ -77,7 +71,6 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     if (ret > 0) {
                                         if (!strncmp(c_buf, "ADD", sizeof(c_buf))) {
                                             broker.lg->debug("add new client, reinit fds");
-                                            broker.fds.reset();
                                             broker.SetState(broker_states::started);
                                             close(data_socket);
                                             break;
@@ -86,7 +79,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     close(data_socket);
                                 } else broker.lg->error("control socket accept error");
                             } else {
-                                int fd = broker.fds.get()[i].fd;
+                                int fd = vec_fds[i].fd;
                                 FixedHeader f_head;
                                 int ret = broker.ReadFixedHeader(fd, f_head);
                                 if (ret == broker_err::ok){
@@ -116,6 +109,15 @@ void* ServerThread([[maybe_unused]] void *arg){
                                               broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(mqtt_pack_type::CONNACK, answer_vh, p_chain, answer_size)));
                                         }; break;
 
+                                        case mqtt_pack_type::PUBLISH:{
+                                            int handle_stat = HandleMqttPublish(broker.clients[fd], f_head, buf, broker.lg);
+                                            if (handle_stat != mqtt_err::ok){
+                                                broker.lg->error("handleConnect error");
+                                                fd_to_delete.push_back(fd);
+                                                break;
+                                            }
+                                        }; break;
+
                                         case mqtt_pack_type::DISCONNECT : {
                                             broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
                                             fd_to_delete.push_back(fd);
@@ -131,8 +133,8 @@ void* ServerThread([[maybe_unused]] void *arg){
                                 }
                             }
                         } else {
-                            broker.lg->debug("client closed socket fd:{}\n", broker.fds.get()[i].fd);
-                            fd_to_delete.push_back(broker.fds.get()[i].fd);
+                            broker.lg->debug("client closed socket fd:{}\n", vec_fds[i].fd);
+                            fd_to_delete.push_back(vec_fds[i].fd);
                         }
                     }
                 }
@@ -141,7 +143,6 @@ void* ServerThread([[maybe_unused]] void *arg){
                     for(const auto &it : fd_to_delete){
                         broker.CloseConnection(it);
                     }
-                    broker.fds.reset();
                 }
                 broker.lg->flush();
             }; break;

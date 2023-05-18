@@ -46,3 +46,15 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     }
     return mqtt_err::ok;
 }
+
+int HandleMqttPublish(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg){
+    uint32_t offset = 0;
+    PublishVH p_vh(fh.QoS(), buf, offset);
+    lg->debug("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
+
+    //read Payload
+    lg->debug("message:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset));
+
+
+    return mqtt_err::ok;
+}

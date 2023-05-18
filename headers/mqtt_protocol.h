@@ -131,47 +131,6 @@ namespace mqtt_protocol{
         uint32_t Size() const;
     };
 
-    class ConnectVH {
-    public:
-        uint16_t prot_name_len;
-        char name[4];
-        uint8_t version;
-        uint8_t conn_flags;
-        uint16_t alive;
-
-        ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0) {
-            bzero(name, 4);
-        }
-        void CopyFromNet(const uint8_t *buf);
-        uint16_t GetSize();
-    };
-
-    class ConnactVH{
-    public:
-        uint8_t conn_acknowledge_flags;
-        uint8_t reason_code;
-        ConnactVH() : conn_acknowledge_flags(0), reason_code(0){}
-        explicit ConnactVH(uint8_t _caf, uint8_t _rc);
-        uint16_t GetSize();
-    };
-
-    class VariableHeader{
-    private:
-        shared_ptr<void> data;
-        uint8_t type;
-    public:
-        VariableHeader() = delete;
-        explicit VariableHeader(const ConnectVH &_vh);
-        explicit VariableHeader(const ConnactVH &_vh);
-        VariableHeader(const VariableHeader& _vh);
-        VariableHeader(VariableHeader&& _vh) noexcept;
-
-        uint16_t GetSize() const;
-        void Serialize(uint8_t* dst_buf, uint32_t &offset);
-
-        ~VariableHeader() = default;
-    };
-
     class MqttStringEntity;
 
     class MqttEntity{
@@ -388,11 +347,13 @@ namespace mqtt_protocol{
     public:
         MqttPropertyChain() = default;
 
-        void        AddProperty(const shared_ptr<MqttProperty>& entity);
-        uint32_t    Count();
+        uint32_t    Count() const;
         uint16_t    GetSize() const;
         shared_ptr<MqttProperty>   GetProperty(uint8_t _id);
         shared_ptr<MqttProperty>   operator[](uint8_t _id);
+
+        int         Create(const shared_ptr<uint8_t>& buf, uint32_t &size);
+        void        AddProperty(const shared_ptr<MqttProperty>& entity);
         void Serialize(uint8_t *buf, uint32_t &offset);
 
         ~MqttPropertyChain() {
@@ -408,6 +369,59 @@ namespace mqtt_protocol{
     [[nodiscard]] uint8_t GetVarIntSize(uint32_t value);
     [[nodiscard]] shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
     [[nodiscard]] shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
+
+    class ConnectVH {
+    public:
+        uint16_t prot_name_len;
+        char name[4];
+        uint8_t version;
+        uint8_t conn_flags;
+        uint16_t alive;
+
+        ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0) {
+            bzero(name, 4);
+        }
+        void CopyFromNet(const uint8_t *buf);
+        uint16_t GetSize();
+    };
+
+    class ConnactVH{
+    public:
+        uint8_t conn_acknowledge_flags;
+        uint8_t reason_code;
+        ConnactVH() : conn_acknowledge_flags(0), reason_code(0){}
+        explicit ConnactVH(uint8_t _caf, uint8_t _rc);
+        uint16_t GetSize();
+    };
+
+    class PublishVH{
+    public:
+        MqttStringEntity topic_name;
+        uint16_t packet_id;
+        MqttPropertyChain p_chain;
+
+        PublishVH(bool is_packet_id_present, shared_ptr<uint8_t> buf, uint32_t &offset);
+
+        PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain);
+        uint16_t GetSize();
+    };
+
+    class VariableHeader{
+    private:
+        shared_ptr<void> data;
+        uint8_t type;
+    public:
+        VariableHeader() = delete;
+        explicit VariableHeader(const ConnectVH &_vh);
+        explicit VariableHeader(const ConnactVH &_vh);
+        VariableHeader(const VariableHeader& _vh);
+        VariableHeader(VariableHeader&& _vh) noexcept;
+
+        uint16_t GetSize() const;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset);
+
+        ~VariableHeader() = default;
+    };
 
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size);
 }

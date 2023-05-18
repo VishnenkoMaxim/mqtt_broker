@@ -87,7 +87,6 @@ private:
     int state;
     int control_sock;
     pthread_t server_tid;
-    unique_ptr<struct pollfd> fds;
     int port;
     shared_ptr<logger> lg;
 
@@ -125,6 +124,7 @@ public:
 };
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
+int HandleMqttPublish(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 
 int SendMqttConnact(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 

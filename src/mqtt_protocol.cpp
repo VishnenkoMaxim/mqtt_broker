@@ -528,7 +528,7 @@ void MqttPropertyChain::AddProperty(const shared_ptr<MqttProperty>& entity){
     uint8_t _id = entity->GetId();
     properties.insert(make_pair(_id, entity));
 }
-uint32_t MqttPropertyChain::Count(){
+uint32_t MqttPropertyChain::Count() const {
     return properties.size();
 }
 shared_ptr<MqttProperty> MqttPropertyChain::GetProperty(uint8_t _id){
@@ -557,6 +557,30 @@ void MqttPropertyChain::Serialize(uint8_t *buf, uint32_t &offset){
     }
 }
 
+int MqttPropertyChain::Create(const shared_ptr<uint8_t>& buf, uint32_t &size){
+    uint32_t properties_len;
+    uint8_t properties_len_size;
+    size = 0;
+    if (DeCodeVarInt(buf.get(), properties_len, properties_len_size) == mqtt_err::ok) {
+        size += properties_len_size;
+        if (properties_len > 0){
+            for (auto &it : properties){
+                it.second.reset();
+            }
+            properties.clear();
+            uint32_t p_len = properties_len;
+            while (p_len > 0) {
+                uint8_t size_property;
+                auto property = CreateProperty(buf.get() + size, size_property);
+                AddProperty(property);
+                p_len -= size_property;
+                size += size_property;
+            }
+            return mqtt_err::ok;
+        } else return mqtt_err::ok;
+    } else return mqtt_err::var_int_err;
+}
+
 void ConnectVH::CopyFromNet(const uint8_t *buf){
     memcpy(this, buf, sizeof(ConnectVH));
     uint16_t tmp = ntohs(prot_name_len);
@@ -576,6 +600,17 @@ ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc) {
 
 uint16_t ConnactVH::GetSize() {
     return sizeof(conn_acknowledge_flags) + sizeof(reason_code);
+}
+
+PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t> buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t)), packet_id(0){
+    offset = topic_name.Size();
+    if (is_packet_id_present){
+        packet_id = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(packet_id);
+    }
+    uint32_t property_size;
+    p_chain.Create(buf, property_size);
+    offset += property_size;
 }
 
 VariableHeader::VariableHeader(const ConnectVH &_vh){
