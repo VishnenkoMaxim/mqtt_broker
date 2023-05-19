@@ -38,10 +38,21 @@ void Client::SetID(const string& _id){
     client_id = _id;
 }
 
-string Client::GetID(){
+string Client::GetID() const {
     return client_id.GetString();
 }
 
 string& Client::GetIP(){
     return ip;
+}
+
+time_t Client::GetPacketLastTime() const {
+    return time_last_packet;
+}
+void Client::SetPacketLastTime(time_t _cur_time){
+    time_last_packet = _cur_time;
+}
+
+uint16_t Client::GetAlive() const{
+    return alive;
 }

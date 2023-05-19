@@ -14,6 +14,7 @@ private:
     [[maybe_unused]] uint8_t state;
     uint8_t flags;
     uint16_t alive;
+    time_t time_last_packet;
 public:
     MqttPropertyChain conn_properties;
 
@@ -30,8 +31,12 @@ public:
     bool isWillFlag() const;
     bool isCleanFlag() const;
 
-    string GetID();
+    string GetID() const;
     string& GetIP();
+    time_t GetPacketLastTime() const;
+    uint16_t GetAlive() const;
+
+    void SetPacketLastTime(time_t _cur_time);
 
     ~Client(){
         conn_properties.~MqttPropertyChain();

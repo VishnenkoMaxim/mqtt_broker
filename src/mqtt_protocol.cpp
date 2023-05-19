@@ -106,7 +106,7 @@ uint8_t mqtt_protocol::CodeVarInt(uint8_t *buf, uint32_t value, uint8_t &size){
 }
 
 [[nodiscard]] uint8_t mqtt_protocol::GetVarIntSize(uint32_t value){
-    if (value == 0) return 0;
+    if (value == 0) return 1;
     uint8_t count = 0;
     while(value > 0){
         count++;
@@ -613,6 +613,12 @@ PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t> buf, u
     offset += property_size;
 }
 
+DisconnectVH::DisconnectVH(uint8_t _reason_code) : reason_code(_reason_code){}
+
+uint16_t DisconnectVH::GetSize(){
+    return sizeof(reason_code);
+}
+
 VariableHeader::VariableHeader(const ConnectVH &_vh){
     type = mqtt_pack_type::CONNECT;
     data.reset(static_cast<ConnectVH *> (new ConnectVH(_vh)));
@@ -623,18 +629,27 @@ VariableHeader::VariableHeader(const ConnactVH &_vh){
     data.reset(static_cast<ConnactVH *> (new ConnactVH(_vh)));
 }
 
+VariableHeader::VariableHeader(const DisconnectVH &_vh){
+    type = mqtt_pack_type::DISCONNECT;
+    data.reset(static_cast<DisconnectVH *> (new DisconnectVH(_vh)));
+}
+
 uint16_t VariableHeader::GetSize() const {
     if (type == mqtt_pack_type::CONNECT) return (static_cast<ConnectVH *> (data.get()))->GetSize();
-    else return (static_cast<ConnactVH *> (data.get()))->GetSize();
+    else if (type == mqtt_pack_type::CONNACK) return (static_cast<ConnactVH *> (data.get()))->GetSize();
+    else return (static_cast<DisconnectVH *> (data.get()))->GetSize();
 }
 
 void VariableHeader::Serialize(uint8_t* dst_buf, uint32_t &offset){
     if (type == mqtt_pack_type::CONNECT) {
         memcpy(dst_buf, data.get(), (static_cast<ConnectVH *> (data.get()))->GetSize());
         offset += static_cast<ConnectVH *> (data.get())->GetSize();
-    } else {
+    } else if (type == mqtt_pack_type::CONNACK){
         memcpy(dst_buf, data.get(), (static_cast<ConnactVH *> (data.get()))->GetSize());
         offset += static_cast<ConnactVH *> (data.get())->GetSize();
+    } else {
+        memcpy(dst_buf, data.get(), (static_cast<DisconnectVH *> (data.get()))->GetSize());
+        offset += static_cast<DisconnectVH *> (data.get())->GetSize();
     }
 }
 
@@ -648,6 +663,10 @@ VariableHeader::VariableHeader(const VariableHeader& _obj) {
     type = _obj.type;
     data = shared_ptr<uint8_t> (new uint8_t[_obj.GetSize()]);
     memcpy(data.get(), _obj.data.get(), _obj.GetSize());
+}
+
+uint8_t VariableHeader::GetType() const {
+    return type;
 }
 
 shared_ptr<MqttStringEntity> mqtt_protocol::CreateMqttStringEntity(const uint8_t *buf, uint8_t &size){
@@ -747,10 +766,11 @@ shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8
 shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size){
     shared_ptr<uint8_t> ptr;
     size = 0;
-    FixedHeader fh(pack_type << 4);
+    FixedHeader fh(pack_type);
 
     uint32_t property_size = p_chain.GetSize();
     size += property_size + GetVarIntSize(property_size) + vh.GetSize();
+
     fh.remaining_len = size;
     size += fh.Size();
 
@@ -768,6 +788,7 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
     offset += pr_size_len;
 
     p_chain.Serialize(ptr.get() + offset, offset);
+
     assert(size == offset);
     return ptr;
 }

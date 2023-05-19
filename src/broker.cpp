@@ -42,17 +42,16 @@ void* ServerThread([[maybe_unused]] void *arg){
             case broker_states::wait : {
                 broker.lg->debug("state wait");
                 int ready;
-                uint32_t client_num = broker.GetClientCount();
-                broker.lg->debug("Waiting for the events..."); broker.lg->flush();
-                client_num++;
-                ready = poll(vec_fds.data(), client_num, -1);
+                uint32_t client_num = broker.GetClientCount() + 1;
+                ready = poll(vec_fds.data(), client_num, 1000);
                 if (ready == -1){
                     broker.lg->critical("poll error");
                     sleep(1);
                     broker.SetState(broker_states::started);
                 }
-                broker.lg->debug("Have data");
                 list<int> fd_to_delete;
+                time_t current_time;
+                time(&current_time);
                 for(unsigned int i=0; i<client_num; i++) {
                     if (vec_fds[i].revents != 0) {
                         broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
@@ -79,7 +78,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     close(data_socket);
                                 } else broker.lg->error("control socket accept error");
                             } else {
+                                broker.lg->debug("Have data");
                                 int fd = vec_fds[i].fd;
+                                broker.clients[fd]->SetPacketLastTime(current_time);
                                 FixedHeader f_head;
                                 int ret = broker.ReadFixedHeader(fd, f_head);
                                 if (ret == broker_err::ok){
@@ -106,7 +107,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                               string id(broker.clients[fd]->GetID());
                                               p_chain.AddProperty(make_shared<MqttProperty>(mqtt_property_id::assigned_client_identifier,
                                                                                             shared_ptr<MqttEntity>(new MqttStringEntity(id))));
-                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(mqtt_pack_type::CONNACK, answer_vh, p_chain, answer_size)));
+                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, p_chain, answer_size)));
                                         }; break;
 
                                         case mqtt_pack_type::PUBLISH:{
@@ -133,8 +134,23 @@ void* ServerThread([[maybe_unused]] void *arg){
                                 }
                             }
                         } else {
-                            broker.lg->debug("client closed socket fd:{}\n", vec_fds[i].fd);
+                            broker.lg->debug("client closed socket fd:{}", vec_fds[i].fd);
                             fd_to_delete.push_back(vec_fds[i].fd);
+                        }
+                    } else {
+                        // no data from current socket
+                        int fd = vec_fds[i].fd;
+                        if (fd != broker.control_sock){
+                            auto pClient = broker.clients[fd];
+                            if (current_time - pClient->GetPacketLastTime() >= 10){
+                                broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
+
+                                VariableHeader answer_vh{DisconnectVH(keep_alive_timeout)};
+                                uint32_t answer_size;
+                                MqttPropertyChain p_chain;
+                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, p_chain, answer_size)));
+                                fd_to_delete.push_back(fd);
+                            }
                         }
                     }
                 }

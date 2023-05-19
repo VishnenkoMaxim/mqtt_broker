@@ -70,6 +70,7 @@ namespace mqtt_protocol{
 
     enum mqtt_reason_code : uint8_t{
         success,
+        disconnect_with_will = 0x04,
         unspecified_error = 0x80,
         malformed_error,
         protocol_error,
@@ -81,16 +82,28 @@ namespace mqtt_protocol{
         server_unavailable,
         server_busy,
         banned,
+        server_shutting_down,
         bad_authentication_method = 0x8C,
-        topic_name_invalid = 0x90,
-        packet_too_large = 0x95,
-        quota_exceeded = 0x97,
-        payload_format_invalid = 0x99,
+        keep_alive_timeout,
+        session_taken_over,
+        topic_filter_invalid,
+        topic_name_invalid,
+        receive_maximum_exceeded = 0x93,
+        topic_alias_invalid,
+        packet_too_large,
+        message_rate_too_high,
+        quota_exceeded,
+        administrative_action,
+        payload_format_invalid,
         retain_not_supported,
         qos_not_supported,
         use_another_server,
         server_moved,
-        connection_rate_exceeded = 0x9F
+        shared_subscription_not_supported,
+        connection_rate_exceeded,
+        maximum_connection_time,
+        subscription_identifiers_not_supported,
+        wildcard_subscriptions_not_supported
     };
 
     enum mqtt_data_type : uint8_t {
@@ -179,7 +192,7 @@ namespace mqtt_protocol{
         MqttTwoByteEntity() = delete;
 
         explicit MqttTwoByteEntity(const uint8_t * _data);
-        explicit MqttTwoByteEntity(const uint16_t value);
+        explicit MqttTwoByteEntity(uint16_t value);
 
         MqttTwoByteEntity(const MqttTwoByteEntity& _obj) noexcept;
         MqttTwoByteEntity(MqttTwoByteEntity&& _obj) noexcept;
@@ -203,7 +216,7 @@ namespace mqtt_protocol{
         MqttFourByteEntity() = delete;
 
         explicit MqttFourByteEntity(const uint8_t * _data);
-        explicit MqttFourByteEntity(const uint32_t value);
+        explicit MqttFourByteEntity(uint32_t value);
 
         MqttFourByteEntity(const MqttFourByteEntity& _obj) noexcept;
         MqttFourByteEntity(MqttFourByteEntity&& _obj) noexcept;
@@ -352,8 +365,8 @@ namespace mqtt_protocol{
         shared_ptr<MqttProperty>   GetProperty(uint8_t _id);
         shared_ptr<MqttProperty>   operator[](uint8_t _id);
 
-        int         Create(const shared_ptr<uint8_t>& buf, uint32_t &size);
-        void        AddProperty(const shared_ptr<MqttProperty>& entity);
+        int  Create(const shared_ptr<uint8_t>& buf, uint32_t &size);
+        void AddProperty(const shared_ptr<MqttProperty>& entity);
         void Serialize(uint8_t *buf, uint32_t &offset);
 
         ~MqttPropertyChain() {
@@ -394,6 +407,14 @@ namespace mqtt_protocol{
         uint16_t GetSize();
     };
 
+    class DisconnectVH{
+    public:
+        uint8_t reason_code;
+
+        explicit DisconnectVH(uint8_t _reason_code);
+        uint16_t GetSize();
+    };
+
     class PublishVH{
     public:
         MqttStringEntity topic_name;
@@ -414,11 +435,13 @@ namespace mqtt_protocol{
         VariableHeader() = delete;
         explicit VariableHeader(const ConnectVH &_vh);
         explicit VariableHeader(const ConnactVH &_vh);
+        explicit VariableHeader(const DisconnectVH &_vh);
         VariableHeader(const VariableHeader& _vh);
         VariableHeader(VariableHeader&& _vh) noexcept;
 
         uint16_t GetSize() const;
         void Serialize(uint8_t* dst_buf, uint32_t &offset);
+        uint8_t GetType() const;
 
         ~VariableHeader() = default;
     };
