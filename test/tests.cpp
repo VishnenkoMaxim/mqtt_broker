@@ -11,6 +11,7 @@
 #include "mqtt_broker.h"
 #include "mqtt_protocol.h"
 #include "command.h"
+#include "mqtt_variable_header.h"
 
 using namespace std;
 
@@ -516,11 +517,13 @@ TEST(CreateMqttPacket, Test_1){
     p_chain.AddProperty(make_shared<MqttProperty>(88, shared_ptr<MqttEntity>(new MqttVIntEntity(0x11AA))));
 
     auto data_to_send = CreateMqttPacket(CONNACK, vh, p_chain, packet_size);
-//
-//    cout << packet_size << endl;
-//    for (unsigned int i=0; i<packet_size; i++){
-//        cout << int(data_to_send.get()[i]) << " ";
-//    }
-//    cout << endl;
     EXPECT_GE(packet_size, 0);
+}
+
+TEST(MqttVH, Test_1){
+    auto *vh = new VariableHeader1(shared_ptr<IVariableHeader>(new ConnactVH1(1,2)));
+
+
+
+
 }
