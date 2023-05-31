@@ -4,14 +4,13 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     ConnectVH con_vh;
     uint32_t offset = 0;
 
-    con_vh.CopyFromNet(buf.get());
-    offset += sizeof(con_vh);
+    con_vh.ReadFromBuf(buf.get(), offset);
+
     char name_tmp[5] = "";
     memcpy(name_tmp, con_vh.name, 4);
     lg->debug(
-            "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}",
-            con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags,
-            con_vh.alive);
+            "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version,
+            con_vh.conn_flags, con_vh.alive);
 
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
@@ -47,14 +46,16 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     return mqtt_err::ok;
 }
 
-int HandleMqttPublish(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg){
+int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message){
     uint32_t offset = 0;
+
     PublishVH p_vh(fh.QoS(), buf, offset);
     lg->debug("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
+    vh = std::move(p_vh);
 
     //read Payload
     lg->debug("message:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset));
-
+    message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
 
     return mqtt_err::ok;
 }

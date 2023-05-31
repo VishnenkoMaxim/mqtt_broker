@@ -40,7 +40,7 @@ void* ServerThread([[maybe_unused]] void *arg){
             }; break;
 
             case broker_states::wait : {
-                broker.lg->debug("state wait");
+                broker.lg->debug("state wait"); broker.lg->flush();
                 int ready;
                 uint32_t client_num = broker.GetClientCount() + 1;
                 ready = poll(vec_fds.data(), client_num, 1000);
@@ -93,6 +93,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                         fd_to_delete.push_back(fd);
                                         continue;
                                     }
+                                    broker.lg->flush();
                                     switch (f_head.GetType()){
                                         case mqtt_pack_type::CONNECT: {
                                               int handle_stat = HandleMqttConnect(broker.clients[fd], buf, broker.lg);
@@ -101,22 +102,27 @@ void* ServerThread([[maybe_unused]] void *arg){
                                                   fd_to_delete.push_back(fd);
                                                   break;
                                               }
-                                              VariableHeader answer_vh{ConnactVH(0,mqtt_reason_code::success)};
+                                              VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success))};
                                               uint32_t answer_size;
                                               MqttPropertyChain p_chain;
                                               string id(broker.clients[fd]->GetID());
-                                              p_chain.AddProperty(make_shared<MqttProperty>(mqtt_property_id::assigned_client_identifier,
+                                              p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier,
                                                                                             shared_ptr<MqttEntity>(new MqttStringEntity(id))));
                                               broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, p_chain, answer_size)));
                                         }; break;
 
                                         case mqtt_pack_type::PUBLISH:{
-                                            int handle_stat = HandleMqttPublish(broker.clients[fd], f_head, buf, broker.lg);
+                                            PublishVH vh;
+                                            MqttBinaryDataEntity message;
+
+                                            int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, message);
                                             if (handle_stat != mqtt_err::ok){
                                                 broker.lg->error("handleConnect error");
                                                 fd_to_delete.push_back(fd);
                                                 break;
                                             }
+                                            broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
+                                            broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {
@@ -144,8 +150,8 @@ void* ServerThread([[maybe_unused]] void *arg){
                             auto pClient = broker.clients[fd];
                             if (current_time - pClient->GetPacketLastTime() >= 10){
                                 broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
-
-                                VariableHeader answer_vh{DisconnectVH(keep_alive_timeout)};
+                                //VariableHeader answer_vh{DisconnectVH(keep_alive_timeout)};
+                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout))};
                                 uint32_t answer_size;
                                 MqttPropertyChain p_chain;
                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, p_chain, answer_size)));
@@ -303,4 +309,3 @@ void Broker::CloseConnection(int fd){
     close(fd);
     DelClient(fd);
 }
-

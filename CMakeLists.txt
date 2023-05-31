@@ -15,20 +15,18 @@ link_directories(libs)
 link_directories(/usr/local/lib)
 link_directories(${CMAKE_BINARY_DIR})
 
-add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp)
 add_library(functions src/functions.cpp)
-add_library(mqtt_protocol src/mqtt_protocol.cpp)
 add_library(command src/command.cpp)
-add_library(mqtt_variable_header src/mqtt_variable_header.cpp)
+add_library(mqtt_protocol src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
+add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp)
 
-set_target_properties(mqtt_broker functions mqtt_protocol mqtt_variable_header PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+set_target_properties(mqtt_broker command functions mqtt_protocol PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(functions PRIVATE "${CMAKE_BINARY_DIR}")
 target_include_directories(mqtt_protocol PRIVATE "${CMAKE_BINARY_DIR}")
 target_include_directories(command PRIVATE "${CMAKE_BINARY_DIR}")
-target_include_directories(mqtt_variable_header PRIVATE "${CMAKE_BINARY_DIR}")
 
 target_link_libraries(command PRIVATE functions)
-target_link_libraries(mqtt_broker PRIVATE spdlog functions command mqtt_protocol mqtt_variable_header config++ stdc++ m)
+target_link_libraries(mqtt_broker PRIVATE spdlog functions command mqtt_protocol config++ stdc++ m)
 
 add_subdirectory(test)
 
@@ -36,7 +34,7 @@ target_compile_options(mqtt_broker PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(functions PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(mqtt_protocol PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(command PRIVATE -Wall -Wextra -pedantic)
-target_compile_options(mqtt_variable_header PRIVATE -Wall -Wextra -pedantic)
+#target_compile_options(mqtt_variable_header PRIVATE -Wall -Wextra -pedantic)
 
 install(TARGETS mqtt_broker RUNTIME DESTINATION bin)
 set(CPACK_GENERATOR DEB)

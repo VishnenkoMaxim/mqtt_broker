@@ -10,6 +10,8 @@ class Client{
 private:
     string ip{};
     MqttStringEntity client_id;
+    set<string>      subscribed_topics;
+    queue<MqttTopic> topics_to_send;
 
     [[maybe_unused]] uint8_t state;
     uint8_t flags;

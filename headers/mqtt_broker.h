@@ -84,6 +84,7 @@ private:
     pthread_mutex_t clients_mtx;
     unsigned int current_clients;
     map<int, shared_ptr<Client>> clients;
+
     int state;
     int control_sock;
     pthread_t server_tid;
@@ -124,7 +125,7 @@ public:
 };
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
-int HandleMqttPublish(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
+int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
 
 int SendMqttConnact(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 

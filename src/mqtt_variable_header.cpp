@@ -1,14 +1,16 @@
-#include "mqtt_variable_header.h"
+#include "mqtt_protocol.h"
 
-ConnectVH1::ConnectVH1() : prot_name_len(0), version(0), conn_flags(0), alive(0){
+using namespace mqtt_protocol;
+
+ConnectVH::ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0){
     memset(name, 0, 4);
 };
 
-uint32_t ConnectVH1::GetSize() const {
+uint32_t ConnectVH::GetSize() const {
     return sizeof(prot_name_len) + sizeof(version) + 4 + sizeof(conn_flags) + sizeof(alive);
 }
 
-void ConnectVH1::Serialize(uint8_t* dst_buf, uint32_t &offset){
+void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
     uint16_t tmp = htons(prot_name_len);
     memcpy(dst_buf + local_offset, &tmp, sizeof(prot_name_len));
@@ -20,30 +22,43 @@ void ConnectVH1::Serialize(uint8_t* dst_buf, uint32_t &offset){
     offset += local_offset;
 }
 
-void ConnectVH1::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
-    memcpy((void*)this, buf, sizeof(ConnectVH1));
+void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+    memcpy(&prot_name_len, buf + local_offset, sizeof(prot_name_len));
     uint16_t tmp = ntohs(prot_name_len);
     prot_name_len = tmp;
+    local_offset += sizeof(prot_name_len);
+    memcpy(name, buf + local_offset, 4);
+    local_offset += 4;
+    memcpy(&version, buf + local_offset, sizeof(version));
+    local_offset += sizeof(version);
+    memcpy(&conn_flags, buf + local_offset, sizeof(conn_flags));
+    local_offset += sizeof(conn_flags);
+    memcpy(&alive, buf + local_offset, sizeof(alive));
+    local_offset += sizeof(alive);
     tmp = ntohs(alive);
     alive = tmp;
     offset += GetSize();
 }
 
-ConnactVH1::ConnactVH1(uint8_t _caf, uint8_t _rc) {
-    conn_acknowledge_flags = _caf;
-    reason_code = _rc;
-}
+ConnactVH::ConnactVH() :conn_acknowledge_flags(0), reason_code(0) {}
 
-uint32_t ConnactVH1::GetSize() const {
+ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc) : conn_acknowledge_flags(_caf), reason_code(_rc) {}
+
+uint32_t ConnactVH::GetSize() const {
     return sizeof(conn_acknowledge_flags) + sizeof(reason_code);
 }
 
-void ConnactVH1::Serialize(uint8_t *dst_buf, uint32_t &offset) {
-    memcpy(dst_buf, &conn_acknowledge_flags, sizeof(ConnactVH1));
-    offset += sizeof(ConnactVH1);
+void ConnactVH::Serialize(uint8_t *dst_buf, uint32_t &offset) {
+    uint32_t local_offset = 0;
+    memcpy(dst_buf, &conn_acknowledge_flags, sizeof(conn_acknowledge_flags));
+    local_offset += sizeof(conn_acknowledge_flags);
+    memcpy(dst_buf + local_offset, &reason_code, sizeof(reason_code));
+    local_offset += sizeof(reason_code);
+    offset += local_offset;
 }
 
-void ConnactVH1::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
+void ConnactVH::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
     uint32_t local_offset = 0;
     memcpy(&conn_acknowledge_flags, buf, sizeof(conn_acknowledge_flags));
     local_offset += sizeof(conn_acknowledge_flags);
@@ -52,31 +67,77 @@ void ConnactVH1::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
     offset += local_offset;
 }
 
-DisconnectVH1::DisconnectVH1(uint8_t _reason_code) : reason_code(_reason_code){}
+DisconnectVH::DisconnectVH(uint8_t _reason_code) : reason_code(_reason_code){}
 
-uint32_t DisconnectVH1::GetSize() const{
+uint32_t DisconnectVH::GetSize() const{
     return sizeof(reason_code);
 }
 
-void DisconnectVH1::Serialize(uint8_t* dst_buf, uint32_t &offset){
+void DisconnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     memcpy(dst_buf, &reason_code, sizeof(reason_code));
     offset += sizeof(reason_code);
 }
 
-void DisconnectVH1::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+void DisconnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     memcpy(&reason_code, buf, sizeof(reason_code));
     offset += sizeof(reason_code);
 }
 
-uint32_t VariableHeader1::GetSize() const {
+PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t)), packet_id(0){
+    offset = topic_name.Size();
+    if (is_packet_id_present){
+        packet_id = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(packet_id);
+    }
+    uint32_t property_size;
+    p_chain.Create(buf, property_size);
+    offset += property_size;
+}
+
+PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(_p_chain){}
+
+PublishVH::PublishVH(PublishVH &&_vh) noexcept : topic_name(std::move(_vh.topic_name)), packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
+
+PublishVH::PublishVH(const PublishVH &_vh) : topic_name(_vh.topic_name), packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
+
+PublishVH& PublishVH::operator=(const PublishVH &_vh) {
+    topic_name = _vh.topic_name;
+    packet_id = _vh.packet_id;
+    p_chain = _vh.p_chain;
+    return *this;
+}
+
+PublishVH& PublishVH::operator=(PublishVH &&_vh) noexcept {
+    topic_name = std::move(_vh.topic_name);
+    packet_id = _vh.packet_id;
+    p_chain = std::move(_vh.p_chain);
+    return *this;
+}
+
+uint32_t PublishVH::GetSize() const {
+    return topic_name.Size() + sizeof(packet_id) + p_chain.GetSize();
+}
+
+void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    //todo
+    (void) dst_buf;
+    (void) offset;
+}
+
+void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    //todo
+    (void) buf;
+    (void) offset;
+}
+
+uint32_t VariableHeader::GetSize() const {
     return v_header->GetSize();
 }
 
-void VariableHeader1::Serialize(uint8_t* dst_buf, uint32_t &offset){
+void VariableHeader::Serialize(uint8_t* dst_buf, uint32_t &offset){
     v_header->Serialize(dst_buf, offset);
 }
 
-void VariableHeader1::ReadFromBuf(const uint8_t* buf, uint32_t &offset) {
+void VariableHeader::ReadFromBuf(const uint8_t* buf, uint32_t &offset) {
     v_header->ReadFromBuf(buf, offset);
 }
-

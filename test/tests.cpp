@@ -1,7 +1,3 @@
-//
-// Created by vishn on 10.04.2023.
-//
-
 #include <gtest/gtest.h>
 #include <string>
 //#include <stdio.h>
@@ -11,7 +7,6 @@
 #include "mqtt_broker.h"
 #include "mqtt_protocol.h"
 #include "command.h"
-#include "mqtt_variable_header.h"
 
 using namespace std;
 
@@ -469,7 +464,7 @@ TEST(MqttGetProperty, Test_6){
     property.reset();
 }
 
-TEST(Command, Test_1){
+TEST(Command, Test_1) {
     Commands command(1);
 
     int fd;
@@ -487,23 +482,10 @@ TEST(Command, Test_1){
     remove(file_name.c_str());
 }
 
-TEST(VariableHeaders, Test_1){
-    VariableHeader vh{ConnactVH(1,2)};
-    VariableHeader vh2{ConnectVH()};
-
-    EXPECT_EQ(sizeof(ConnactVH), vh.GetSize());
-    EXPECT_EQ(sizeof(ConnectVH), vh2.GetSize());
-
-    uint8_t buf[32] = "";
-    uint32_t offset = 0;
-    vh.Serialize(buf, offset);
-    EXPECT_EQ(sizeof(ConnactVH), offset);
-}
-
 TEST(CreateMqttPacket, Test_1){
     uint8_t buf[10] = "";
 
-    VariableHeader vh{ConnactVH(11,33)};
+    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(11,33))};
     uint32_t packet_size = 0;
     MqttPropertyChain p_chain;
 
@@ -520,9 +502,18 @@ TEST(CreateMqttPacket, Test_1){
     EXPECT_GE(packet_size, 0);
 }
 
-TEST(MqttVH, Test_1){
-    auto *vh = new VariableHeader1(shared_ptr<IVariableHeader>(new ConnactVH1(1,2)));
+TEST(VariableHeaders, Test_1){
+    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(1,2))};
+    EXPECT_EQ(vh.GetSize(), 2);
 
+    uint8_t buf[32] = "";
+    uint32_t offset = 0;
+    vh.Serialize(buf, offset);
+    EXPECT_EQ(2, offset);
+}
+
+TEST(VariableHeaders, Test_2){
+    auto *vh = new VariableHeader(shared_ptr<IVariableHeader>(new ConnactVH(1,2)));
 
 
 
