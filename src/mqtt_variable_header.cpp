@@ -12,7 +12,7 @@ uint32_t ConnectVH::GetSize() const {
 
 void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
-    uint16_t tmp = htons(prot_name_len);
+    auto tmp = htons(prot_name_len);
     memcpy(dst_buf + local_offset, &tmp, sizeof(prot_name_len));
     local_offset += sizeof(prot_name_len);
     memcpy(dst_buf + local_offset, name, 4 + sizeof(version) + sizeof(conn_flags));
@@ -25,7 +25,7 @@ void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
 void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t local_offset = 0;
     memcpy(&prot_name_len, buf + local_offset, sizeof(prot_name_len));
-    uint16_t tmp = ntohs(prot_name_len);
+    auto tmp = ntohs(prot_name_len);
     prot_name_len = tmp;
     local_offset += sizeof(prot_name_len);
     memcpy(name, buf + local_offset, 4);
@@ -95,9 +95,7 @@ PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, 
 }
 
 PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(_p_chain){}
-
 PublishVH::PublishVH(PublishVH &&_vh) noexcept : topic_name(std::move(_vh.topic_name)), packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
-
 PublishVH::PublishVH(const PublishVH &_vh) : topic_name(_vh.topic_name), packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
 
 PublishVH& PublishVH::operator=(const PublishVH &_vh) {
@@ -119,9 +117,15 @@ uint32_t PublishVH::GetSize() const {
 }
 
 void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
-    //todo
-    (void) dst_buf;
-    (void) offset;
+    uint32_t local_offset = 0;
+    topic_name.Serialize(dst_buf, local_offset);
+    offset += local_offset;
+    if (packet_id != 0){
+        auto tmp = ntohs(packet_id);
+        memcpy(dst_buf + local_offset, &tmp, sizeof(tmp));
+        offset += sizeof(tmp);
+    }
+    p_chain.Serialize(dst_buf, offset);
 }
 
 void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){

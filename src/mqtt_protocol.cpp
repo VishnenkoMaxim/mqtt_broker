@@ -438,6 +438,39 @@ shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttStringPairEntity::GetPa
     return data;
 }
 
+MqttPropertyChain::MqttPropertyChain(const MqttPropertyChain & _chain){
+    properties = _chain.properties;
+}
+
+MqttPropertyChain& MqttPropertyChain::operator = (const MqttPropertyChain & _chain){
+    properties.clear();
+    for(const auto &it: _chain.properties){
+        shared_ptr<MqttProperty> p;
+
+        switch(it.second->GetType()){
+            case mqtt_data_type::byte : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttByteEntity(it.second->GetUint())));};break;
+            case mqtt_data_type::two_byte : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttTwoByteEntity(it.second->GetUint())));};break;
+            case mqtt_data_type::four_byte : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttFourByteEntity(it.second->GetUint())));};break;
+            case mqtt_data_type::mqtt_string : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttStringEntity(it.second->GetString())));};break;
+            case mqtt_data_type::mqtt_string_pair : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttStringPairEntity(it.second->GetPair()->first, it.second->GetPair()->second)));};break;
+            case mqtt_data_type::variable_int : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttVIntEntity(it.second->GetData())));};break;
+            case mqtt_data_type::binary_data : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(it.second->Size(), it.second->GetData())));};break;
+        }
+        assert(p->GetId() > 0);
+        AddProperty(p);
+    }
+    return *this;
+}
+
+MqttPropertyChain::MqttPropertyChain(MqttPropertyChain && _chain) noexcept{
+    properties = std::move(_chain.properties);
+}
+
+MqttPropertyChain& MqttPropertyChain::operator = (MqttPropertyChain && _chain) noexcept {
+    properties = std::move(_chain.properties);
+    return *this;
+}
+
 uint8_t*    MqttProperty::GetData(){
     return property->GetData();
 }
@@ -481,9 +514,11 @@ void MqttPropertyChain::AddProperty(const shared_ptr<MqttProperty>& entity){
     uint8_t _id = entity->GetId();
     properties.insert(make_pair(_id, entity));
 }
+
 uint32_t MqttPropertyChain::Count() const {
     return properties.size();
 }
+
 shared_ptr<MqttProperty> MqttPropertyChain::GetProperty(uint8_t _id){
     auto it = properties.find(_id);
     if (it != properties.end()) return it->second;

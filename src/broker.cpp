@@ -150,7 +150,6 @@ void* ServerThread([[maybe_unused]] void *arg){
                             auto pClient = broker.clients[fd];
                             if (current_time - pClient->GetPacketLastTime() >= 10){
                                 broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
-                                //VariableHeader answer_vh{DisconnectVH(keep_alive_timeout)};
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout))};
                                 uint32_t answer_size;
                                 MqttPropertyChain p_chain;

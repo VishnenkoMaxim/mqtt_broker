@@ -4,6 +4,7 @@ include(CMakePrintHelpers)
 set(CMAKE_CXX_STANDARD 17)
 set(PATCH_VERSION "1" CACHE INTERNAL "Patch version")
 set(PROJECT_VERSION 0.0.${PATCH_VERSION})
+set(CMAKE_CXX_COMPILER "/usr/bin/clang")
 project(mqtt_broker VERSION ${PROJECT_VERSION})
 
 configure_file(version.h.in version.h)

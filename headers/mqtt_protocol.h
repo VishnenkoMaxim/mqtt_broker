@@ -342,6 +342,20 @@ namespace mqtt_protocol{
             id = _id;
         }
 
+        MqttProperty& operator = (const MqttProperty& _property){
+            id = _property.id;
+            property.reset(static_cast<MqttEntity*>(::operator new(_property.property->Size())));
+            memcpy(property->GetData(), _property.property->GetData(), _property.property->Size());
+            return *this;
+        }
+
+//        MqttProperty(const MqttProperty& _property) : MqttEntity(_property) {
+//            cout << "constr" << endl;
+//            id = _property.id;
+//            property.reset(static_cast<MqttEntity*>(::operator new(_property.property->Size())));
+//            memcpy(property->GetData(), _property.property->GetData(), _property.property->Size());
+//        }
+
         uint8_t     GetId() const;
         uint8_t*    GetData() override;
         uint32_t    Size() const override;
@@ -351,6 +365,8 @@ namespace mqtt_protocol{
         string      GetString() const override;
         pair<string, string> GetStringPair() const override;
         void        Serialize(uint8_t* buf_dst, uint32_t &offset) override;
+
+
 
         ~MqttProperty() override {
             property->~MqttEntity();
@@ -363,6 +379,10 @@ namespace mqtt_protocol{
         map<uint8_t, shared_ptr<MqttProperty>> properties;
     public:
         MqttPropertyChain() = default;
+        MqttPropertyChain(const MqttPropertyChain & _chain);
+        MqttPropertyChain& operator = (const MqttPropertyChain & _chain);
+        MqttPropertyChain(MqttPropertyChain && _chain) noexcept;
+        MqttPropertyChain& operator = (MqttPropertyChain && _chain) noexcept;
 
         [[nodiscard]] uint32_t    Count() const;
         [[nodiscard]] uint16_t    GetSize() const;

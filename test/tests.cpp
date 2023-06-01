@@ -339,6 +339,31 @@ TEST(MqttPropertiesChain, Test_3){
     delete p_chain;
 }
 
+TEST(MqttPropertiesChain, Test_4){
+    uint16_t var = 0xFFFA;
+    MqttPropertyChain p_chain2;
+
+    {
+        MqttPropertyChain p_chain;
+        p_chain.AddProperty(make_shared<MqttProperty>(server_keep_alive, shared_ptr<MqttEntity>(new MqttTwoByteEntity((uint8_t *) &var))));
+        p_chain.AddProperty(make_shared<MqttProperty>(receive_maximum, shared_ptr<MqttEntity>(new MqttTwoByteEntity((uint8_t *) &var))));
+
+        EXPECT_EQ(p_chain.GetProperty(server_keep_alive)->GetId(), server_keep_alive);
+        EXPECT_EQ(p_chain.GetProperty(server_keep_alive)->GetType(), mqtt_data_type::two_byte);
+        EXPECT_EQ(p_chain.GetProperty(server_keep_alive)->Size(), sizeof(var));
+        EXPECT_EQ(memcmp(p_chain.GetProperty(server_keep_alive)->GetData(), &var, sizeof(var)), 0);
+
+        p_chain2 = p_chain;
+        var = 11;
+        memcpy(p_chain[server_keep_alive]->GetData(), &var, sizeof(var));
+    }
+
+    EXPECT_EQ(p_chain2[server_keep_alive]->GetId(), server_keep_alive);
+    EXPECT_EQ(p_chain2[server_keep_alive]->GetType(), mqtt_data_type::two_byte);
+    EXPECT_EQ(p_chain2[server_keep_alive]->Size(), sizeof(var));
+    EXPECT_EQ(p_chain2[server_keep_alive]->GetUint(), 0xFFFA);
+}
+
 TEST(MqttGetProperty, Test_1){
     uint8_t buf[2];
     uint8_t size = 0;
@@ -514,6 +539,7 @@ TEST(VariableHeaders, Test_1){
 
 TEST(VariableHeaders, Test_2){
     auto *vh = new VariableHeader(shared_ptr<IVariableHeader>(new ConnactVH(1,2)));
+
 
 
 
