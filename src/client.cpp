@@ -34,6 +34,7 @@ bool Client::isWillFlag() const {
 bool Client::isCleanFlag() const {
     return flags & 0x2;
 }
+
 void Client::SetID(const string& _id){
     client_id = _id;
 }
@@ -55,4 +56,16 @@ void Client::SetPacketLastTime(time_t _cur_time){
 
 uint16_t Client::GetAlive() const{
     return alive;
+}
+
+void  Client::AddSubscription(const string &_topic_name, uint8_t options){
+    subscribed_topics.insert(make_pair(_topic_name, options));
+}
+
+unordered_map<string, uint8_t>::const_iterator Client::CFind(const string &_topic_name) {
+    return subscribed_topics.find(_topic_name);
+}
+
+unordered_map<string, uint8_t>::const_iterator Client::CEnd(){
+    return subscribed_topics.cend();
 }

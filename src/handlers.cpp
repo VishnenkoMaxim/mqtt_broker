@@ -61,12 +61,22 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     return mqtt_err::ok;
 }
 
-int HandleMqttSubscribe([[maybe_unused]] const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh){
+int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
     SubscribeVH s_vh(buf, offset);
     vh = std::move(s_vh);
 
+    while(offset < fh.remaining_len){
+        uint8_t options;
+        uint16_t name_len = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(name_len);
+        string topic_name((char *) buf.get() + offset, name_len);
+        offset += name_len;
+        memcpy(&options, buf.get() + offset, sizeof(options));
+        offset += sizeof(options);
+        pClient->AddSubscription(topic_name, options);
+    }
     return mqtt_err::ok;
 }

@@ -40,7 +40,7 @@ void* ServerThread([[maybe_unused]] void *arg){
             }; break;
 
             case broker_states::wait : {
-                broker.lg->debug("state wait"); broker.lg->flush();
+                //broker.lg->debug("state wait"); broker.lg->flush();
                 int ready;
                 uint32_t client_num = broker.GetClientCount() + 1;
                 ready = poll(vec_fds.data(), client_num, 1000);
@@ -127,7 +127,7 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                         case mqtt_pack_type::SUBSCRIBE : {
                                             SubscribeVH vh;
-                                            int handle_stat = HandleMqttSubscribe(f_head, buf, broker.lg, vh);
+                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh);
                                             if (handle_stat != mqtt_err::ok){
                                                 broker.lg->error("handle SUBSCRIBE error");
                                                 fd_to_delete.push_back(fd);
@@ -137,11 +137,23 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it){
                                                 broker.lg->debug("property id:{} val:{}", it->first, it->second->GetUint());
                                             }
+                                            auto p = broker.clients[fd]->CFind("test_name");
+
+                                            if ( p != broker.clients[fd]->CEnd()){
+                                                broker.lg->debug("sub topic name: {} opt: {}", p->first, p->second);
+                                            }
+
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {
                                             broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
                                             fd_to_delete.push_back(fd);
+                                        }; break;
+
+                                        case mqtt_pack_type::PINGREQ : {
+                                            broker.lg->info("{}: PINGREQ", broker.clients[fd]->GetIP());
+                                            uint32_t answer_size;
+                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PINGRESP << 4, answer_size)));
                                         }; break;
 
                                         default : {
@@ -162,7 +174,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                         int fd = vec_fds[i].fd;
                         if (fd != broker.control_sock){
                             auto pClient = broker.clients[fd];
-                            if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive()){
+                            if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive() + 5){
                                 broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout))};
                                 uint32_t answer_size;

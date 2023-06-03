@@ -135,7 +135,6 @@ void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 //--------------------------SubscribeVH-------------------------------------------
-
 SubscribeVH::SubscribeVH(const shared_ptr<uint8_t>& buf, uint32_t &offset){
     offset = 0;
     packet_id = ConvertToHost2Bytes(buf.get());

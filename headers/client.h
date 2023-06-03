@@ -9,9 +9,9 @@ using namespace mqtt_protocol;
 class Client{
 private:
     string ip{};
-    MqttStringEntity client_id;
-    set<string>      subscribed_topics;
-    queue<MqttTopic> topics_to_send;
+    MqttStringEntity        client_id;
+    queue<MqttTopic>        topics_to_send;
+    unordered_map<string, uint8_t>   subscribed_topics;
 
     [[maybe_unused]] uint8_t state;
     uint8_t flags;
@@ -25,6 +25,7 @@ public:
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
     void SetID(const string& _id);
+    void AddSubscription(const string &_topic_name, uint8_t options);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;
@@ -37,6 +38,8 @@ public:
     string& GetIP();
     time_t GetPacketLastTime() const;
     uint16_t GetAlive() const;
+    unordered_map<string, uint8_t>::const_iterator CFind(const string &_topic_name);
+    unordered_map<string, uint8_t>::const_iterator CEnd();
 
     void SetPacketLastTime(time_t _cur_time);
 

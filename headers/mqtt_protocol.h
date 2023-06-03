@@ -501,6 +501,23 @@ namespace mqtt_protocol{
         ~VariableHeader() override = default;
     };
 
+//    class MqttSubscription : private MqttStringEntity {
+//    private:
+//        uint8_t options;
+//
+//    public:
+//        MqttSubscription() : MqttStringEntity(""), options(0){};
+//        explicit MqttSubscription(const uint8_t * _data, uint32_t &offset);
+//        MqttSubscription(const MqttSubscription &_sub);
+//        MqttSubscription(const MqttSubscription &&_sub) noexcept ;
+//        MqttSubscription& operator = (const MqttSubscription &_sub);
+//
+//        [[nodiscard]] string GetName() const;
+//        [[nodiscard]] uint8_t GetOptions() const;
+//
+//        ~MqttSubscription() override = default;
+//    };
+
     class MqttTopic{
     private:
         [[maybe_unused]] uint16_t id;
@@ -512,6 +529,8 @@ namespace mqtt_protocol{
         MqttTopic(uint16_t _id, string _name, uint16_t _len, const uint8_t * _data);
     };
 
+
+
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);
     [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, uint32_t &value, uint8_t &size);
     uint8_t               CodeVarInt(uint8_t *buf, uint32_t value, uint8_t &size);
@@ -520,6 +539,7 @@ namespace mqtt_protocol{
     [[nodiscard]] shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
 
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size);
+    shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, uint32_t &size);
 }
 
 #endif //MQTT_BROKER_MQTT_PROTOCOL_H
