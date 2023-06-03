@@ -90,7 +90,7 @@ PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, 
         offset += sizeof(packet_id);
     }
     uint32_t property_size;
-    p_chain.Create(buf, property_size);
+    p_chain.Create(buf.get() + offset, property_size);
     offset += property_size;
 }
 
@@ -132,6 +132,60 @@ void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     //todo
     (void) buf;
     (void) offset;
+}
+
+//--------------------------SubscribeVH-------------------------------------------
+
+SubscribeVH::SubscribeVH(const shared_ptr<uint8_t>& buf, uint32_t &offset){
+    offset = 0;
+    packet_id = ConvertToHost2Bytes(buf.get());
+    offset += sizeof(packet_id);
+
+    uint32_t property_size;
+    p_chain.Create(buf.get() + offset, property_size);
+    offset += property_size;
+}
+
+SubscribeVH::SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain) : packet_id(_packet_id), p_chain(_p_chain){}
+SubscribeVH::SubscribeVH(const SubscribeVH &_vh) : packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
+SubscribeVH::SubscribeVH(SubscribeVH &&_vh) noexcept : packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
+
+SubscribeVH& SubscribeVH::operator =(const SubscribeVH &_vh){
+    packet_id = _vh.packet_id;
+    p_chain = _vh.p_chain;
+    return *this;
+}
+
+SubscribeVH& SubscribeVH::operator =(SubscribeVH &&_vh) noexcept{
+    packet_id = _vh.packet_id;
+    p_chain = std::move(_vh.p_chain);
+    return *this;
+}
+
+[[nodiscard]] uint32_t SubscribeVH::GetSize() const {
+    return sizeof(packet_id) + + p_chain.GetSize();
+}
+
+void SubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    if (packet_id != 0){
+        auto tmp = ntohs(packet_id);
+        memcpy(dst_buf, &tmp, sizeof(tmp));
+        offset += sizeof(tmp);
+    }
+    p_chain.Serialize(dst_buf, offset);
+}
+
+void SubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    p_chain.Clear();
+    uint32_t local_offset = 0;
+    memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
+    auto tmp = ntohs(packet_id);
+    packet_id = tmp;
+    local_offset += sizeof(packet_id);
+    offset += local_offset;
+    uint32_t property_len = 0;
+    p_chain.Create(buf + local_offset, property_len);
+    offset += property_len;
 }
 
 uint32_t VariableHeader::GetSize() const {

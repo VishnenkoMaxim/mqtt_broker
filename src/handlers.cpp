@@ -47,6 +47,7 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
 }
 
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message){
+    lg->debug("HandleMqttPublish");
     uint32_t offset = 0;
 
     PublishVH p_vh(fh.QoS(), buf, offset);
@@ -56,6 +57,16 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     //read Payload
     lg->debug("message:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset));
     message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
+
+    return mqtt_err::ok;
+}
+
+int HandleMqttSubscribe([[maybe_unused]] const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh){
+    lg->debug("HandleMqttSubscribe");
+    uint32_t offset = 0;
+
+    SubscribeVH s_vh(buf, offset);
+    vh = std::move(s_vh);
 
     return mqtt_err::ok;
 }

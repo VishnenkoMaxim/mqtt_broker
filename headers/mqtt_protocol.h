@@ -123,7 +123,8 @@ namespace mqtt_protocol{
     enum mqtt_err : int {
         ok,
         read_err,
-        var_int_err
+        var_int_err,
+        mqtt_property_err
     };
 
     class FixedHeader{
@@ -337,24 +338,10 @@ namespace mqtt_protocol{
     public:
         MqttProperty() = delete;
 
-        MqttProperty(uint8_t _id, shared_ptr<MqttEntity> entity){
-            property = std::move(entity);
-            id = _id;
-        }
+        MqttProperty(uint8_t _id, shared_ptr<MqttEntity> entity);
+        explicit MqttProperty(const MqttProperty& _property);
+        MqttProperty& operator = (const MqttProperty& _property);
 
-        MqttProperty& operator = (const MqttProperty& _property){
-            id = _property.id;
-            property.reset(static_cast<MqttEntity*>(::operator new(_property.property->Size())));
-            memcpy(property->GetData(), _property.property->GetData(), _property.property->Size());
-            return *this;
-        }
-
-//        MqttProperty(const MqttProperty& _property) : MqttEntity(_property) {
-//            cout << "constr" << endl;
-//            id = _property.id;
-//            property.reset(static_cast<MqttEntity*>(::operator new(_property.property->Size())));
-//            memcpy(property->GetData(), _property.property->GetData(), _property.property->Size());
-//        }
 
         uint8_t     GetId() const;
         uint8_t*    GetData() override;
@@ -365,8 +352,6 @@ namespace mqtt_protocol{
         string      GetString() const override;
         pair<string, string> GetStringPair() const override;
         void        Serialize(uint8_t* buf_dst, uint32_t &offset) override;
-
-
 
         ~MqttProperty() override {
             property->~MqttEntity();
@@ -389,9 +374,18 @@ namespace mqtt_protocol{
         shared_ptr<MqttProperty>   GetProperty(uint8_t _id);
         shared_ptr<MqttProperty>   operator[](uint8_t _id);
 
-        int  Create(const shared_ptr<uint8_t>& buf, uint32_t &size);
+        int  Create(const uint8_t *buf, uint32_t &size);
         void AddProperty(const shared_ptr<MqttProperty>& entity);
         void Serialize(uint8_t *buf, uint32_t &offset);
+        void Clear();
+
+        decltype(properties)::const_iterator Cbegin(){
+            return properties.cbegin();
+        }
+
+        decltype(properties)::const_iterator Cend(){
+            return properties.cend();
+        }
 
         ~MqttPropertyChain() {
             for (auto &it : properties){
@@ -468,6 +462,27 @@ namespace mqtt_protocol{
         void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
 
         ~PublishVH() override = default;
+    };
+
+    class SubscribeVH: public IVariableHeader{
+    public:
+        uint16_t packet_id;
+        MqttPropertyChain p_chain;
+
+        SubscribeVH() : packet_id(0){};
+
+        SubscribeVH(const shared_ptr<uint8_t>& buf, uint32_t &offset);
+        SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain);
+        SubscribeVH(const SubscribeVH &_vh);
+        SubscribeVH(SubscribeVH &&_vh) noexcept;
+        SubscribeVH& operator =(const SubscribeVH &_vh);
+        SubscribeVH& operator =(SubscribeVH &&_vh) noexcept;
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~SubscribeVH() override = default;
     };
 
     class VariableHeader final : public IVariableHeader{

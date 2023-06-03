@@ -117,12 +117,26 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                             int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, message);
                                             if (handle_stat != mqtt_err::ok){
-                                                broker.lg->error("handleConnect error");
+                                                broker.lg->error("handle PUBLISH error");
                                                 fd_to_delete.push_back(fd);
                                                 break;
                                             }
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
                                             broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
+                                        }; break;
+
+                                        case mqtt_pack_type::SUBSCRIBE : {
+                                            SubscribeVH vh;
+                                            int handle_stat = HandleMqttSubscribe(f_head, buf, broker.lg, vh);
+                                            if (handle_stat != mqtt_err::ok){
+                                                broker.lg->error("handle SUBSCRIBE error");
+                                                fd_to_delete.push_back(fd);
+                                                break;
+                                            }
+                                            broker.lg->info("Subscribe. id:{} property count:{}", vh.packet_id, vh.p_chain.Count());
+                                            for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it){
+                                                broker.lg->debug("property id:{} val:{}", it->first, it->second->GetUint());
+                                            }
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {
@@ -148,7 +162,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                         int fd = vec_fds[i].fd;
                         if (fd != broker.control_sock){
                             auto pClient = broker.clients[fd];
-                            if (current_time - pClient->GetPacketLastTime() >= 10){
+                            if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive()){
                                 broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout))};
                                 uint32_t answer_size;
