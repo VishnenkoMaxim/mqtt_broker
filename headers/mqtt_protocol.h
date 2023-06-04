@@ -73,6 +73,8 @@ namespace mqtt_protocol{
 
     enum mqtt_reason_code : uint8_t{
         success,
+        granted_quos_1,
+        granted_quos_2,
         disconnect_with_will = 0x04,
         unspecified_error = 0x80,
         malformed_error,
@@ -485,6 +487,23 @@ namespace mqtt_protocol{
         ~SubscribeVH() override = default;
     };
 
+    class SubackVH : public IVariableHeader{
+    public:
+        uint16_t packet_id;
+        MqttPropertyChain p_chain;
+        vector<uint8_t> &reason_codes;
+
+        SubackVH() = delete;
+        SubackVH(uint16_t _packet_id, const MqttPropertyChain &_p_chain, vector<uint8_t>& _reason_codes);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~SubackVH() override = default;
+    };
+
+
     class VariableHeader final : public IVariableHeader{
     private:
         shared_ptr<IVariableHeader> v_header;
@@ -540,6 +559,8 @@ namespace mqtt_protocol{
 
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size);
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, uint32_t &size);
+    shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size);
+
 }
 
 #endif //MQTT_BROKER_MQTT_PROTOCOL_H

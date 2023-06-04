@@ -742,3 +742,26 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, uint32_t 
 
     return ptr;
 }
+
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size){
+    shared_ptr<uint8_t> ptr;
+    size = 0;
+    FixedHeader fh(pack_type);
+
+    size += vh.GetSize();
+
+    fh.remaining_len = size;
+    size += fh.Size();
+
+    ptr = shared_ptr<uint8_t>(new uint8_t[size], default_delete<uint8_t[]>());
+    if (ptr == nullptr){
+        size = 0;
+        return nullptr;
+    }
+
+    uint32_t offset = 0;
+    fh.Serialize(ptr.get(), offset);
+    vh.Serialize(ptr.get() + offset, offset);
+
+    return ptr;
+}

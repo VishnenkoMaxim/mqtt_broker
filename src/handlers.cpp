@@ -51,7 +51,7 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     uint32_t offset = 0;
 
     PublishVH p_vh(fh.QoS(), buf, offset);
-    lg->debug("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
+    lg->info("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
     vh = std::move(p_vh);
 
     //read Payload
@@ -61,7 +61,7 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     return mqtt_err::ok;
 }
 
-int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh){
+int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh, vector<uint8_t> &_reason_codes){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
@@ -77,6 +77,8 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
         memcpy(&options, buf.get() + offset, sizeof(options));
         offset += sizeof(options);
         pClient->AddSubscription(topic_name, options);
+        _reason_codes.push_back(0);
+        lg->info("{}: subscribed to topic:'{}'", pClient->GetIP(), topic_name);
     }
     return mqtt_err::ok;
 }

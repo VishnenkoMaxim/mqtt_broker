@@ -105,4 +105,7 @@ public:
 
 std::string GenRandom(const uint8_t len);
 
+template <class Type>
+ostream& operator << (ostream &os, const vector<Type> &_vec);
+
 #endif //MQTT_BROKER_FUNCTIONS_H

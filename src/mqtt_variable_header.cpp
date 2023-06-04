@@ -42,7 +42,6 @@ void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 ConnactVH::ConnactVH() :conn_acknowledge_flags(0), reason_code(0) {}
-
 ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc) : conn_acknowledge_flags(_caf), reason_code(_rc) {}
 
 uint32_t ConnactVH::GetSize() const {
@@ -124,8 +123,15 @@ void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
         auto tmp = ntohs(packet_id);
         memcpy(dst_buf + local_offset, &tmp, sizeof(tmp));
         offset += sizeof(tmp);
+        local_offset += sizeof(tmp);
     }
-    p_chain.Serialize(dst_buf, offset);
+    uint32_t p_len = p_chain.GetSize();
+    uint8_t p_len_size;
+    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
+    local_offset += p_len_size;
+    offset += p_len_size;
+
+    p_chain.Serialize(dst_buf + local_offset, offset);
 }
 
 void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
@@ -166,12 +172,21 @@ SubscribeVH& SubscribeVH::operator =(SubscribeVH &&_vh) noexcept{
 }
 
 void SubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+
     if (packet_id != 0){
         auto tmp = ntohs(packet_id);
         memcpy(dst_buf, &tmp, sizeof(tmp));
         offset += sizeof(tmp);
+        local_offset += sizeof(tmp);
     }
-    p_chain.Serialize(dst_buf, offset);
+    uint32_t p_len = p_chain.GetSize();
+    uint8_t p_len_size;
+    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
+    local_offset += p_len_size;
+    offset += p_len_size;
+
+    p_chain.Serialize(dst_buf + local_offset, offset);
 }
 
 void SubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
@@ -185,6 +200,38 @@ void SubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t property_len = 0;
     p_chain.Create(buf + local_offset, property_len);
     offset += property_len;
+}
+
+//----------------------SubackVH-------------------------------
+SubackVH::SubackVH(uint16_t _packet_id, const MqttPropertyChain &_p_chain, vector<uint8_t>& _reason_codes) : packet_id(_packet_id), p_chain(_p_chain), reason_codes(_reason_codes){}
+
+uint32_t SubackVH::GetSize() const{
+    return sizeof(packet_id) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize()) + reason_codes.size();
+}
+
+void SubackVH::Serialize(uint8_t* dst_buf, uint32_t &offset) {
+    uint32_t local_offset = 0;
+    auto tmp = htons(packet_id);
+    memcpy(dst_buf, &tmp, sizeof(packet_id));
+    local_offset += sizeof(packet_id);
+
+    uint32_t p_len = p_chain.GetSize();
+    uint8_t p_len_size;
+    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
+    local_offset += p_len_size;
+
+    p_chain.Serialize(dst_buf + local_offset, local_offset);
+    for(unsigned int i=0; i<reason_codes.size(); i++){
+        memcpy(dst_buf + local_offset, &reason_codes[i], sizeof(uint8_t));
+        local_offset++;
+    }
+    offset += local_offset;
+}
+
+void SubackVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    //todo
+    (void)buf;
+    (void) offset;
 }
 
 uint32_t VariableHeader::GetSize() const {

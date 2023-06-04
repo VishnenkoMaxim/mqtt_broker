@@ -127,7 +127,9 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                         case mqtt_pack_type::SUBSCRIBE : {
                                             SubscribeVH vh;
-                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh);
+                                            vector<uint8_t> reason_codes;
+
+                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh, reason_codes);
                                             if (handle_stat != mqtt_err::ok){
                                                 broker.lg->error("handle SUBSCRIBE error");
                                                 fd_to_delete.push_back(fd);
@@ -137,12 +139,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it){
                                                 broker.lg->debug("property id:{} val:{}", it->first, it->second->GetUint());
                                             }
-                                            auto p = broker.clients[fd]->CFind("test_name");
 
-                                            if ( p != broker.clients[fd]->CEnd()){
-                                                broker.lg->debug("sub topic name: {} opt: {}", p->first, p->second);
-                                            }
-
+                                            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new SubackVH(vh.packet_id, MqttPropertyChain(), reason_codes))};
+                                            uint32_t answer_size;
+                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {

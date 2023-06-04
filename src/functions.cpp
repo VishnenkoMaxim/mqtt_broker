@@ -137,3 +137,12 @@ string GenRandom(const uint8_t len) {
     }
     return tmp_s;
 }
+
+template <class Type>
+ostream& operator << (ostream &os, const vector<Type> &_vec){
+    for(auto &it : _vec){
+        os << it << " ";
+    }
+    os << endl;
+    return os;
+}
