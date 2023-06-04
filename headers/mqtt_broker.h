@@ -102,6 +102,8 @@ private:
     int ReadFixedHeader(int fd, FixedHeader &f_hed);
     string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
+
+    int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message);
 public:
     friend void* ServerThread (void *arg);
 
@@ -127,5 +129,6 @@ public:
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh, vector<uint8_t> &_reason_codes);
+
 
 #endif //MQTT_BROKER_H

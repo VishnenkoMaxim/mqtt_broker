@@ -357,6 +357,11 @@ void MqttBinaryDataEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
     offset += Size();
 }
 
+void MqttBinaryDataEntity::SerializeWithoutLen(uint8_t* dst_buf, uint32_t &offset){
+    memcpy(dst_buf, data.get(), size);
+    offset += Size()-sizeof(size);
+}
+
 MqttStringPairEntity::MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept{
     type = _obj.type;
     data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(_obj.GetStringPair());
@@ -565,6 +570,13 @@ uint16_t MqttPropertyChain::GetSize() const {
 
 void MqttPropertyChain::Serialize(uint8_t *buf, uint32_t &offset){
     uint32_t size = 0;
+
+    uint32_t p_len = GetSize();
+    uint8_t p_len_size;
+    CodeVarInt(buf, p_len, p_len_size);
+    size += p_len_size;
+    offset += size;
+
     for(const auto &it: properties){
         it.second->Serialize(buf + size, offset);
         size += it.second->Size() + 1; //+1 because property_id
@@ -694,13 +706,11 @@ shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8
     }
 }
 
-shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttPropertyChain &p_chain, uint32_t &size){
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size){
     shared_ptr<uint8_t> ptr;
-    size = 0;
     FixedHeader fh(pack_type);
 
-    uint32_t property_size = p_chain.GetSize();
-    size += property_size + GetVarIntSize(property_size) + vh.GetSize();
+    size = vh.GetSize();
 
     fh.remaining_len = size;
     size += fh.Size();
@@ -714,11 +724,6 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
     uint32_t offset = 0;
     fh.Serialize(ptr.get(), offset);
     vh.Serialize(ptr.get() + offset, offset);
-    uint8_t pr_size_len;
-    CodeVarInt(ptr.get() + offset, property_size, pr_size_len);
-    offset += pr_size_len;
-
-    p_chain.Serialize(ptr.get() + offset, offset);
 
     assert(size == offset);
     return ptr;
@@ -743,12 +748,12 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, uint32_t 
     return ptr;
 }
 
-shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size){
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttBinaryDataEntity &message, uint32_t &size){
     shared_ptr<uint8_t> ptr;
-    size = 0;
     FixedHeader fh(pack_type);
 
-    size += vh.GetSize();
+    size = vh.GetSize() + message.Size()-2;
+    if(fh.QoS() == 0) size -= 2; //delete id packet if quos is 0
 
     fh.remaining_len = size;
     size += fh.Size();
@@ -760,8 +765,16 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
     }
 
     uint32_t offset = 0;
-    fh.Serialize(ptr.get(), offset);
-    vh.Serialize(ptr.get() + offset, offset);
 
+    fh.Serialize(ptr.get(), offset);
+    cout << (int) fh.Size() << " " << (int) offset << endl;
+
+    vh.Serialize(ptr.get() + offset, offset);
+    cout << (int) vh.GetSize() << " " << (int) offset << endl;
+
+    message.SerializeWithoutLen(ptr.get() + offset, offset);
+    cout << (int) message.Size()-2 << " " << (int) offset << endl;
+
+    assert(size == offset);
     return ptr;
 }

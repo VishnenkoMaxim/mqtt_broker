@@ -14,25 +14,16 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
 
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
-    //read properties
-    uint32_t properties_len = 0;
-    uint8_t size = 0;
 
-    uint8_t stat = DeCodeVarInt(buf.get() + offset, properties_len, size);
-    if (stat != mqtt_err::ok) {
-        lg->error("Read DeCodeVarInt error");
-        return stat;
+    //read properties
+    uint32_t property_size;
+    int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
+    if (create_status != mqtt_err::ok){
+        lg->error("Read properties error!");
+        return create_status;
     }
-    lg->debug("properties len:{}", properties_len);
-    offset += size;
-    uint32_t p_len = properties_len;
-    while (p_len > 0) {
-        uint8_t size_property;
-        auto property = CreateProperty(buf.get() + offset, size_property);
-        pClient->conn_properties.AddProperty(property);
-        p_len -= size_property;
-        offset += size_property;
-    }
+    offset += property_size;
+
     //read ClientID
     uint8_t id_len;
     auto id = CreateMqttStringEntity(buf.get() + offset, id_len);

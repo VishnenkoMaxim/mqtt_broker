@@ -102,13 +102,12 @@ void* ServerThread([[maybe_unused]] void *arg){
                                                   fd_to_delete.push_back(fd);
                                                   break;
                                               }
-                                              VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success))};
                                               uint32_t answer_size;
                                               MqttPropertyChain p_chain;
-                                              string id(broker.clients[fd]->GetID());
                                               p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier,
-                                                                                            shared_ptr<MqttEntity>(new MqttStringEntity(id))));
-                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, p_chain, answer_size)));
+                                                                                            shared_ptr<MqttEntity>(new MqttStringEntity(broker.clients[fd]->GetID()))));
+                                              VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success, p_chain))};
+                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, answer_size)));
                                         }; break;
 
                                         case mqtt_pack_type::PUBLISH:{
@@ -123,6 +122,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             }
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
                                             broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
+                                            broker.NotifyClients(vh.topic_name, message);
                                         }; break;
 
                                         case mqtt_pack_type::SUBSCRIBE : {
@@ -176,10 +176,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                             auto pClient = broker.clients[fd];
                             if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive() + 5){
                                 broker.lg->info("{} ({}) time out, disconnect", pClient->GetIP(), pClient->GetID());
-                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout))};
-                                uint32_t answer_size;
                                 MqttPropertyChain p_chain;
-                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, p_chain, answer_size)));
+                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout, p_chain))};
+                                uint32_t answer_size;
+                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)));
                                 fd_to_delete.push_back(fd);
                             }
                         }
@@ -333,4 +333,19 @@ void Broker::CloseConnection(int fd){
     lg->debug("Close connection fd:{}", fd);
     close(fd);
     DelClient(fd);
+}
+
+int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
+    MqttPropertyChain p_chain;
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, p_chain))};
+    uint32_t answer_size;
+    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
+
+    for(const auto & it : clients){
+        auto t_iter = it.second->CFind(topic_name.GetString());
+        if (t_iter != it.second->CEnd()){
+            AddCommand(it.first, make_tuple(answer_size, data));
+        }
+    }
+    return mqtt_err::ok;
 }

@@ -42,10 +42,10 @@ void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 ConnactVH::ConnactVH() :conn_acknowledge_flags(0), reason_code(0) {}
-ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc) : conn_acknowledge_flags(_caf), reason_code(_rc) {}
+ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &_properties) : conn_acknowledge_flags(_caf), reason_code(_rc), p_chain(std::move(_properties)) {}
 
 uint32_t ConnactVH::GetSize() const {
-    return sizeof(conn_acknowledge_flags) + sizeof(reason_code);
+    return sizeof(conn_acknowledge_flags) + sizeof(reason_code) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize());
 }
 
 void ConnactVH::Serialize(uint8_t *dst_buf, uint32_t &offset) {
@@ -55,6 +55,8 @@ void ConnactVH::Serialize(uint8_t *dst_buf, uint32_t &offset) {
     memcpy(dst_buf + local_offset, &reason_code, sizeof(reason_code));
     local_offset += sizeof(reason_code);
     offset += local_offset;
+
+    p_chain.Serialize(dst_buf + local_offset, offset);
 }
 
 void ConnactVH::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
@@ -64,22 +66,33 @@ void ConnactVH::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
     memcpy(&reason_code, buf + local_offset, sizeof(reason_code));
     local_offset += sizeof(reason_code);
     offset += local_offset;
+    uint32_t size;
+    p_chain.Create(buf + local_offset, size);
+    offset += size;
 }
 
-DisconnectVH::DisconnectVH(uint8_t _reason_code) : reason_code(_reason_code){}
+DisconnectVH::DisconnectVH(uint8_t _reason_code,  MqttPropertyChain &_properties) : reason_code(_reason_code), p_chain(std::move(_properties)){}
 
 uint32_t DisconnectVH::GetSize() const{
-    return sizeof(reason_code);
+    return sizeof(reason_code) + GetVarIntSize(p_chain.GetSize()) + p_chain.GetSize();
 }
 
 void DisconnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t local_offset = 0;
     memcpy(dst_buf, &reason_code, sizeof(reason_code));
-    offset += sizeof(reason_code);
+    local_offset += sizeof(reason_code);
+
+    p_chain.Serialize(dst_buf + local_offset, local_offset);
+    offset += local_offset;
 }
 
 void DisconnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     memcpy(&reason_code, buf, sizeof(reason_code));
     offset += sizeof(reason_code);
+
+    uint32_t size;
+    p_chain.Create(buf + sizeof(reason_code), size);
+    offset += size;
 }
 
 PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t)), packet_id(0){
@@ -112,7 +125,7 @@ PublishVH& PublishVH::operator=(PublishVH &&_vh) noexcept {
 }
 
 uint32_t PublishVH::GetSize() const {
-    return topic_name.Size() + sizeof(packet_id) + p_chain.GetSize();
+    return topic_name.Size() + sizeof(packet_id) + GetVarIntSize(p_chain.GetSize()) + p_chain.GetSize();
 }
 
 void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
@@ -125,12 +138,6 @@ void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
         offset += sizeof(tmp);
         local_offset += sizeof(tmp);
     }
-    uint32_t p_len = p_chain.GetSize();
-    uint8_t p_len_size;
-    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
-    local_offset += p_len_size;
-    offset += p_len_size;
-
     p_chain.Serialize(dst_buf + local_offset, offset);
 }
 
@@ -168,7 +175,7 @@ SubscribeVH& SubscribeVH::operator =(SubscribeVH &&_vh) noexcept{
 }
 
 [[nodiscard]] uint32_t SubscribeVH::GetSize() const {
-    return sizeof(packet_id) + + p_chain.GetSize();
+    return sizeof(packet_id) + p_chain.GetSize();
 }
 
 void SubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
@@ -180,11 +187,6 @@ void SubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
         offset += sizeof(tmp);
         local_offset += sizeof(tmp);
     }
-    uint32_t p_len = p_chain.GetSize();
-    uint8_t p_len_size;
-    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
-    local_offset += p_len_size;
-    offset += p_len_size;
 
     p_chain.Serialize(dst_buf + local_offset, offset);
 }
@@ -214,11 +216,6 @@ void SubackVH::Serialize(uint8_t* dst_buf, uint32_t &offset) {
     auto tmp = htons(packet_id);
     memcpy(dst_buf, &tmp, sizeof(packet_id));
     local_offset += sizeof(packet_id);
-
-    uint32_t p_len = p_chain.GetSize();
-    uint8_t p_len_size;
-    CodeVarInt(dst_buf + local_offset, p_len, p_len_size);
-    local_offset += p_len_size;
 
     p_chain.Serialize(dst_buf + local_offset, local_offset);
     for(unsigned int i=0; i<reason_codes.size(); i++){
