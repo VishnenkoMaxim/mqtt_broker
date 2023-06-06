@@ -18,7 +18,7 @@ link_directories(${CMAKE_BINARY_DIR})
 
 add_library(functions src/functions.cpp)
 add_library(command src/command.cpp)
-add_library(mqtt_protocol src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
+add_library(mqtt_protocol SHARED src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
 add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp)
 
 set_target_properties(mqtt_broker command functions mqtt_protocol PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)

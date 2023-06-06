@@ -84,6 +84,7 @@ private:
     pthread_mutex_t clients_mtx;
     unsigned int current_clients;
     map<int, shared_ptr<Client>> clients;
+    unordered_multimap<string, int> subscribe_data;
 
     int state;
     int control_sock;

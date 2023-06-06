@@ -42,7 +42,8 @@ void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 ConnactVH::ConnactVH() :conn_acknowledge_flags(0), reason_code(0) {}
-ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &_properties) : conn_acknowledge_flags(_caf), reason_code(_rc), p_chain(std::move(_properties)) {}
+ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &_properties) : conn_acknowledge_flags(_caf), reason_code(_rc), p_chain(_properties) {}
+ConnactVH::ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &&_properties) : conn_acknowledge_flags(_caf), reason_code(_rc), p_chain(std::move(_properties)) {}
 
 uint32_t ConnactVH::GetSize() const {
     return sizeof(conn_acknowledge_flags) + sizeof(reason_code) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize());
@@ -71,7 +72,8 @@ void ConnactVH::ReadFromBuf(const uint8_t *buf, uint32_t &offset) {
     offset += size;
 }
 
-DisconnectVH::DisconnectVH(uint8_t _reason_code,  MqttPropertyChain &_properties) : reason_code(_reason_code), p_chain(std::move(_properties)){}
+DisconnectVH::DisconnectVH(uint8_t _reason_code,  MqttPropertyChain &_properties) : reason_code(_reason_code), p_chain(_properties){}
+DisconnectVH::DisconnectVH(uint8_t _reason_code,  MqttPropertyChain &&_properties) : reason_code(_reason_code), p_chain(std::move(_properties)){}
 
 uint32_t DisconnectVH::GetSize() const{
     return sizeof(reason_code) + GetVarIntSize(p_chain.GetSize()) + p_chain.GetSize();
@@ -107,6 +109,7 @@ PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, 
 }
 
 PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(_p_chain){}
+PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(std::move(_p_chain)){}
 PublishVH::PublishVH(PublishVH &&_vh) noexcept : topic_name(std::move(_vh.topic_name)), packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
 PublishVH::PublishVH(const PublishVH &_vh) : topic_name(_vh.topic_name), packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
 

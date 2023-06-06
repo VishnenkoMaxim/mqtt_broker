@@ -510,7 +510,6 @@ TEST(Command, Test_1) {
 TEST(CreateMqttPacket, Test_1){
     uint8_t buf[10] = "";
 
-    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(11,33))};
     uint32_t packet_size = 0;
     MqttPropertyChain p_chain;
 
@@ -523,12 +522,14 @@ TEST(CreateMqttPacket, Test_1){
     p_chain.AddProperty(make_shared<MqttProperty>(77, shared_ptr<MqttEntity>(new MqttBinaryDataEntity(sizeof(buf), buf))));
     p_chain.AddProperty(make_shared<MqttProperty>(88, shared_ptr<MqttEntity>(new MqttVIntEntity(0x11AA))));
 
-    auto data_to_send = CreateMqttPacket(CONNACK, vh, p_chain, packet_size);
+    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(11,33, MqttPropertyChain{}))};
+
+    auto data_to_send = CreateMqttPacket(CONNACK, vh, packet_size);
     EXPECT_GE(packet_size, 0);
 }
 
 TEST(VariableHeaders, Test_1){
-    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(1,2))};
+    VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(1,2, MqttPropertyChain()))};
     EXPECT_EQ(vh.GetSize(), 2);
 
     uint8_t buf[32] = "";
@@ -538,7 +539,7 @@ TEST(VariableHeaders, Test_1){
 }
 
 TEST(VariableHeaders, Test_2){
-    auto *vh = new VariableHeader(shared_ptr<IVariableHeader>(new ConnactVH(1,2)));
+    auto *vh = new VariableHeader(shared_ptr<IVariableHeader>(new ConnactVH(1,2, MqttPropertyChain())));
 
 
 

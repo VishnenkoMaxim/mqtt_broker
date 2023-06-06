@@ -342,18 +342,18 @@ namespace mqtt_protocol{
         MqttProperty() = delete;
 
         MqttProperty(uint8_t _id, shared_ptr<MqttEntity> entity);
-        explicit MqttProperty(const MqttProperty& _property);
-        MqttProperty& operator = (const MqttProperty& _property);
+        //explicit MqttProperty(const MqttProperty& _property);
+        //MqttProperty& operator = (const MqttProperty& _property);
 
 
-        uint8_t     GetId() const;
+        [[nodiscard]] uint8_t     GetId() const;
         uint8_t*    GetData() override;
-        uint32_t    Size() const override;
-        uint8_t     GetType() const override;
+        [[nodiscard]] uint32_t    Size() const override;
+        [[nodiscard]] uint8_t     GetType() const override;
         shared_ptr<pair<MqttStringEntity, MqttStringEntity>>     GetPair() override;
-        uint32_t    GetUint() const override;
-        string      GetString() const override;
-        pair<string, string> GetStringPair() const override;
+        [[nodiscard]] uint32_t    GetUint() const override;
+        [[nodiscard]] string      GetString() const override;
+        [[nodiscard]] pair<string, string> GetStringPair() const override;
         void        Serialize(uint8_t* buf_dst, uint32_t &offset) override;
 
         ~MqttProperty() override {
@@ -428,7 +428,8 @@ namespace mqtt_protocol{
         MqttPropertyChain   p_chain;
 
         ConnactVH();
-        explicit ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &_properties);
+        ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &_properties);
+        ConnactVH(uint8_t _caf, uint8_t _rc, MqttPropertyChain &&_properties);
 
         [[nodiscard]] uint32_t GetSize() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
@@ -440,7 +441,8 @@ namespace mqtt_protocol{
         uint8_t reason_code;
         MqttPropertyChain p_chain;
 
-        explicit DisconnectVH(uint8_t _reason_code, MqttPropertyChain &_properties);
+        DisconnectVH(uint8_t _reason_code, MqttPropertyChain &_properties);
+        DisconnectVH(uint8_t _reason_code, MqttPropertyChain &&_properties);
 
         [[nodiscard]] uint32_t GetSize() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
@@ -457,6 +459,8 @@ namespace mqtt_protocol{
 
         PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, uint32_t &offset);
         PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain);
+        PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain);
+
         PublishVH(const PublishVH &_vh);
         PublishVH(PublishVH &&_vh) noexcept;
         PublishVH& operator =(const PublishVH &_vh);
@@ -506,7 +510,6 @@ namespace mqtt_protocol{
         ~SubackVH() override = default;
     };
 
-
     class VariableHeader final : public IVariableHeader{
     private:
         shared_ptr<IVariableHeader> v_header;
@@ -533,8 +536,6 @@ namespace mqtt_protocol{
         MqttTopic() = delete;
         MqttTopic(uint16_t _id, string _name, uint16_t _len, const uint8_t * _data);
     };
-
-
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);
     [[nodiscard]] uint8_t DeCodeVarInt(const uint8_t *buf, uint32_t &value, uint8_t &size);

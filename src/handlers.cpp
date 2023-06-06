@@ -29,6 +29,7 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
     if (id != nullptr){
         pClient->SetID(id->GetString());
+        lg->debug("id: {}", pClient->GetID());
     } else {
         lg->info("No ClientID provided");
         pClient->SetID(GenRandom(23));
