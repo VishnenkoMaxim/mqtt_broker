@@ -79,6 +79,22 @@ public:
 
 ServerCfgData ReadConfig(const char *path, int &err);
 
+class Publisher{
+private:
+    list<MqttTopic> topics_to_pub;
+
+public:
+    void Add(const MqttTopic &topic){
+        topics_to_pub.push_back(topic);
+    }
+
+    void ShowTopics(){
+        for(auto it : topics_to_pub){
+            cout << "topic: " << it.GetString() << endl;
+        }
+    }
+};
+
 class Broker : private Commands {
 private:
     pthread_mutex_t clients_mtx;

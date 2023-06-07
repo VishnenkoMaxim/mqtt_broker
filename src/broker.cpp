@@ -11,6 +11,8 @@
 vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL", "PUBCOMP", "SUBSCRIBE", "SUBACK",
                                "UNSUBSCRIBE", "UNSUBACK", "PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"};
 
+Publisher publisher;
+
 void* ServerThread([[maybe_unused]] void *arg){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start ServerThread");
@@ -122,6 +124,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             }
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
                                             broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
+
+                                            publisher.Add(MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
+
                                             broker.NotifyClients(vh.topic_name, message);
                                         }; break;
 

@@ -283,6 +283,7 @@ namespace mqtt_protocol{
         uint8_t* GetData() override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
         void SerializeWithoutLen(uint8_t* dst_buf, uint32_t &offset);
+        [[nodiscard]] string GetString() const override;
 
         ~MqttBinaryDataEntity() override {
             data.reset();
@@ -534,7 +535,18 @@ namespace mqtt_protocol{
 
     public:
         MqttTopic() = delete;
-        MqttTopic(uint16_t _id, string _name, uint16_t _len, const uint8_t * _data);
+        MqttTopic(uint16_t _id, const string &_name, uint16_t _len, const uint8_t * _data);
+        MqttTopic(uint16_t _id, const string &_name, MqttBinaryDataEntity &_data);
+
+        MqttTopic(const MqttTopic &_topic) = default;
+        MqttTopic(MqttTopic &&_topic) noexcept = default;
+        MqttTopic& operator=(const MqttTopic &_topic) = default;
+        MqttTopic& operator=(MqttTopic &&_topic) noexcept = default;
+        bool operator==(const string &str);
+
+        uint32_t GetSize();
+        const uint8_t* GetData();
+        string GetString() const;
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

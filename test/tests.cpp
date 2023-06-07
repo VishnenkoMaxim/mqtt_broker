@@ -530,18 +530,32 @@ TEST(CreateMqttPacket, Test_1){
 
 TEST(VariableHeaders, Test_1){
     VariableHeader vh{shared_ptr<IVariableHeader>(new ConnactVH(1,2, MqttPropertyChain()))};
-    EXPECT_EQ(vh.GetSize(), 2);
+    EXPECT_EQ(vh.GetSize(), 3);
 
     uint8_t buf[32] = "";
     uint32_t offset = 0;
     vh.Serialize(buf, offset);
-    EXPECT_EQ(2, offset);
+    EXPECT_EQ(3, offset);
 }
 
 TEST(VariableHeaders, Test_2){
     auto *vh = new VariableHeader(shared_ptr<IVariableHeader>(new ConnactVH(1,2, MqttPropertyChain())));
+}
 
+TEST(MqttTopic, Test_1){
+    MqttBinaryDataEntity data(4, (uint8_t *) "data");
+    MqttTopic topic(1, "test", data.Size(), data.GetData());
+    MqttTopic topic_2(topic);
 
+    EXPECT_EQ(topic == "test", true);
+    EXPECT_EQ(topic_2 == "test", true);
 
+    EXPECT_EQ(topic.GetSize(), topic_2.GetSize());
+    EXPECT_EQ(memcmp(topic.GetData(), topic_2.GetData(), 4), 0);
 
+    MqttTopic topic_3(std::move(topic));
+
+    EXPECT_EQ(topic_3 == "test", true);
+    EXPECT_EQ(topic_2.GetSize(), topic_3.GetSize());
+    EXPECT_EQ(memcmp(topic_3.GetData(), topic_2.GetData(), 4), 0);
 }

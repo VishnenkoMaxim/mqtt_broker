@@ -350,6 +350,10 @@ uint8_t* MqttBinaryDataEntity::GetData(){
     return (uint8_t *) data.get();
 }
 
+[[nodiscard]] string MqttBinaryDataEntity::GetString() const {
+    return string((char *) data.get(), size);
+}
+
 void MqttBinaryDataEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint16_t len = htons(size);
     memcpy(dst_buf, &len, sizeof(len));
