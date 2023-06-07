@@ -53,11 +53,16 @@ public:
     void Execute() override;
 };
 
+void Sender();
+
 class Commands{
 protected:
     vector<shared_ptr<ICommand>> commands;
     unsigned short N;
     shared_ptr<Writer> stream;
+
+    mutex com_mutex;
+    condition_variable cond;
 
 public:
     Commands() : N(0) {
@@ -71,7 +76,7 @@ public:
     void AddCommand(int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd);
     void Execute();
     void PostActions();
-    void Exit();
+    void Notify();
 };
 
 
