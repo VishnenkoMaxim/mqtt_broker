@@ -57,25 +57,19 @@ void Sender();
 
 class Commands{
 protected:
-    vector<shared_ptr<ICommand>> commands;
-    unsigned short N;
+    queue<shared_ptr<ICommand>> commands;
     shared_ptr<Writer> stream;
 
     mutex com_mutex;
     condition_variable cond;
 
 public:
-    Commands() : N(0) {
-        stream = std::make_shared<Writer>();
-    }
-
-    explicit Commands(const unsigned short n) : N(n) {
+    Commands(){
         stream = std::make_shared<Writer>();
     }
 
     void AddCommand(int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd);
     void Execute();
-    void PostActions();
     void Notify();
 };
 

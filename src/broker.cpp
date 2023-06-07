@@ -208,7 +208,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                         broker.CloseConnection(it);
                     }
                 }
-                broker.Notify();
+                //broker.Notify();
                 broker.lg->flush();
             }; break;
         }

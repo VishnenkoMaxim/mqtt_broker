@@ -110,7 +110,7 @@ private:
     int port;
     shared_ptr<logger> lg;
 
-    Broker() : Commands(1), current_clients(0), state(0), control_sock(-1) {};
+    Broker() : Commands(), current_clients(0), state(0), control_sock(-1) {};
 
     Broker(const Broker& root)          = delete;
     Broker& operator=(const Broker&)    = delete;

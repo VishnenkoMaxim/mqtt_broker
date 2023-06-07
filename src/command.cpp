@@ -17,7 +17,7 @@ void FdWriteCommand::Execute() {
 
 void Commands::AddCommand(const int fd, tuple<uint32_t, shared_ptr<uint8_t>> _cmd){
     lock_guard<mutex> guard{com_mutex};
-    commands.emplace_back(new FdWriteCommand(stream, fd, std::move(_cmd)));
+    commands.emplace(new FdWriteCommand(stream, fd, std::move(_cmd)));
     cond.notify_all();
 }
 
@@ -25,14 +25,8 @@ void Commands::Execute(){
     unique_lock<mutex> lock{com_mutex};
     while(commands.empty()) cond.wait(lock);
 
-    for (auto &it : commands){
-        it->Execute();
-    }
-    PostActions();
-}
-
-void Commands::PostActions(){
-    commands.clear();
+    commands.front()->Execute();
+    commands.pop();
 }
 
 void Commands::Notify(){
