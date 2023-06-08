@@ -53,8 +53,6 @@ public:
     void Execute() override;
 };
 
-void Sender();
-
 class Commands{
 protected:
     queue<shared_ptr<ICommand>> commands;
@@ -62,7 +60,6 @@ protected:
 
     mutex com_mutex;
     condition_variable cond;
-
 public:
     Commands(){
         stream = std::make_shared<Writer>();

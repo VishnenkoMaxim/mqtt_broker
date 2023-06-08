@@ -95,7 +95,7 @@ public:
     }
 };
 
-void SenderThread();
+[[noreturn]] void SenderThread();
 
 class Broker : public Commands {
 private:

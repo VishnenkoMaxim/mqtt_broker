@@ -48,9 +48,14 @@ int main() {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(cfg_data.port);
-    if (bind(sock_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0){
-        lg->error("Error binding socket: {}", strerror(errno));
-        return 0;
+    while(true) {
+        if (bind(sock_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+            lg->error("Error binding socket: {}", strerror(errno));
+            lg->flush();
+            sleep(1);
+            continue;
+        }
+        break;
     }
 
     if (listen(sock_fd, 40) < 0){
