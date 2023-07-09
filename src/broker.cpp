@@ -13,17 +13,13 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
 
 //Publisher publisher;
 
-[[noreturn]] void SenderThread(){
-    static int thread_num = 0;
-    thread_num++;
-
-    int num = thread_num;
+void SenderThread(int id){
     Broker& broker = Broker::GetInstance();
-    broker.lg->debug("Start Sender Thread {}", num);
+    broker.lg->debug("Start Sender Thread {}", id);
 
     while(true){
         broker.Execute();
-        broker.lg->debug("Sender Thread {} executed", num);
+        broker.lg->debug("Sender Thread {} executed", id);
     }
 }
 
@@ -203,6 +199,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                 if (!fd_to_delete.empty()){
                     broker.SetState(broker_states::started);
                     for(const auto &it : fd_to_delete){
+                        auto pClient = broker.clients[it];
+                        if (pClient->isWillFlag()){
+                            broker.NotifyClients(pClient->will_topic, pClient->will_payload);
+                        }
                         broker.CloseConnection(it);
                     }
                 }
@@ -352,16 +352,16 @@ void Broker::CloseConnection(int fd){
 }
 
 int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
-    //MqttPropertyChain p_chain;
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, MqttPropertyChain()))};
     uint32_t answer_size;
     shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
 
     for(const auto & it : clients){
-        auto t_iter = it.second->CFind(topic_name.GetString());
-        if (t_iter != it.second->CEnd()){
-            AddCommand(it.first, make_tuple(answer_size, data));
-        }
+//        auto t_iter = it.second->CFind(topic_name.GetString());
+//        if (t_iter != it.second->CEnd()){
+//            AddCommand(it.first, make_tuple(answer_size, data));
+//        }
+        if(it.second->MyTopic(topic_name.GetString())) AddCommand(it.first, make_tuple(answer_size, data));
     }
     return mqtt_err::ok;
 }

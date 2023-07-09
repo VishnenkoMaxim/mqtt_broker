@@ -1,6 +1,6 @@
 #include "client.h"
 
-Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0){
+Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0), will_topic(string{}){
     //
 }
 
@@ -68,4 +68,9 @@ unordered_map<string, uint8_t>::const_iterator Client::CFind(const string &_topi
 
 unordered_map<string, uint8_t>::const_iterator Client::CEnd(){
     return subscribed_topics.cend();
+}
+
+bool Client::MyTopic(const string &_topic){
+    if (subscribed_topics.find(_topic) != subscribed_topics.end()) return true;
+    return false;
 }

@@ -95,7 +95,7 @@ public:
     }
 };
 
-[[noreturn]] void SenderThread();
+void SenderThread(int id);
 
 class Broker : public Commands {
 private:
@@ -125,7 +125,7 @@ private:
     int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message);
 public:
     friend void* ServerThread (void *arg);
-    friend void SenderThread();
+    friend void SenderThread(int id);
 
     static Broker& GetInstance(){
         static Broker instance;

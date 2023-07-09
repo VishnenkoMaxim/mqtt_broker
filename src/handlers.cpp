@@ -35,6 +35,33 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
         pClient->SetID(GenRandom(23));
         lg->info("Create new ID:{}", pClient->GetID());
     }
+
+    if (id_len) offset += id_len;
+    else offset += 2;
+
+    if (pClient->isWillFlag()){
+        uint32_t will_property_size;
+        int will_create_status = pClient->will_properties.Create(buf.get() + offset, will_property_size);
+        if (will_create_status != mqtt_err::ok){
+            lg->error("Read will properties error!");
+            return will_create_status;
+        }
+        offset += will_property_size;
+        lg->debug("will properties count: {} ", pClient->will_properties.Count());
+
+        uint16_t str_len = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(str_len);
+        pClient->will_topic = string((char *) (buf.get() + offset), str_len);
+        offset += str_len;
+        lg->debug("will topic: {} ", pClient->will_topic.GetString());
+
+        uint16_t data_len = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(data_len);
+        pClient->will_payload = MqttBinaryDataEntity(data_len, buf.get() + offset);
+        offset += data_len;
+        lg->debug("will payload len: {} ", pClient->will_payload.Size());
+    }
+
     return mqtt_err::ok;
 }
 

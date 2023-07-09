@@ -346,7 +346,6 @@ namespace mqtt_protocol{
         //explicit MqttProperty(const MqttProperty& _property);
         //MqttProperty& operator = (const MqttProperty& _property);
 
-
         [[nodiscard]] uint8_t     GetId() const;
         uint8_t*    GetData() override;
         [[nodiscard]] uint32_t    Size() const override;

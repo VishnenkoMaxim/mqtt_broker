@@ -17,15 +17,20 @@ private:
     uint8_t flags;
     uint16_t alive;
     time_t time_last_packet;
-public:
-    MqttPropertyChain conn_properties;
 
+public:
     explicit Client(string _ip);
+
+    MqttPropertyChain conn_properties;
+    MqttPropertyChain will_properties;
+    MqttStringEntity will_topic;
+    MqttBinaryDataEntity will_payload;
 
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
     void SetID(const string& _id);
     void AddSubscription(const string &_topic_name, uint8_t options);
+    bool MyTopic(const string &_topic);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;

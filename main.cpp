@@ -71,8 +71,8 @@ int main() {
 
     broker.InitControlSocket();
 
-    thread thread1(SenderThread);
-    thread thread2(SenderThread);
+    thread thread1(SenderThread, 1);
+    thread thread2(SenderThread, 2);
 
     while(true){
         lg->info("Waiting for a client..."); lg->flush();

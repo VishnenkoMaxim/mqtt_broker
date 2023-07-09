@@ -490,7 +490,7 @@ TEST(MqttGetProperty, Test_6){
 }
 
 TEST(Command, Test_1) {
-    Commands command(1);
+    Commands command;
 
     int fd;
     string file_name = "file";
