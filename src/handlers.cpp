@@ -80,7 +80,8 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     return mqtt_err::ok;
 }
 
-int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, SubscribeVH &vh, vector<uint8_t> &_reason_codes){
+int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
+                        SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
@@ -97,6 +98,7 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
         offset += sizeof(options);
         pClient->AddSubscription(topic_name, options);
         _reason_codes.push_back(0);
+        subscribe_topics.push_back(topic_name);
         lg->info("{}: subscribed to topic:'{}'", pClient->GetIP(), topic_name);
     }
     return mqtt_err::ok;

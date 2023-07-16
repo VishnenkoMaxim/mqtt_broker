@@ -143,21 +143,31 @@ void* ServerThread([[maybe_unused]] void *arg){
                                         case mqtt_pack_type::SUBSCRIBE : {
                                             SubscribeVH vh;
                                             vector<uint8_t> reason_codes;
+                                            list<string> tpcs;
 
-                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh, reason_codes);
+                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh, reason_codes, tpcs);
                                             if (handle_stat != mqtt_err::ok){
                                                 broker.lg->error("handle SUBSCRIBE error");
                                                 fd_to_delete.push_back(fd);
                                                 break;
                                             }
                                             broker.lg->info("Subscribe. id:{} property count:{}", vh.packet_id, vh.p_chain.Count());
-                                            for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it){
-                                                broker.lg->debug("property id:{} val:{}", it->first, it->second->GetUint());
+                                            for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it) {
+                                                broker.lg->debug("property id:{} val:{}", it->first,
+                                                                 it->second->GetUint());
                                             }
-
                                             VariableHeader answer_vh{shared_ptr<IVariableHeader>(new SubackVH(vh.packet_id, MqttPropertyChain(), reason_codes))};
                                             uint32_t answer_size;
                                             broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
+
+                                            for (const auto& it : tpcs){
+                                                MqttBinaryDataEntity data = broker.GetStoredValue(it);
+                                                if(data.Size() != 0){
+                                                    broker.lg->debug("Found retain topic:{}", it);
+                                                    MqttStringEntity e_string(it);
+                                                    broker.NotifyClient(fd, e_string, data);
+                                                }
+                                            }
                                         }; break;
 
                                         case mqtt_pack_type::DISCONNECT : {
@@ -377,5 +387,14 @@ int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_m
             AddCommand(it.first, make_tuple(answer_size, data));
         }
     }
+    return mqtt_err::ok;
+}
+
+int Broker::NotifyClient(const int fd,MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, MqttPropertyChain()))};
+    uint32_t answer_size;
+    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
+    lg->debug("Add topic to send :{}", topic_name.GetString());
+    AddCommand(fd, make_tuple(answer_size, data));
     return mqtt_err::ok;
 }

@@ -2,7 +2,9 @@
 
 void CTopicStorage::StoreTopicValue(const string& topic_name, const MqttBinaryDataEntity& data){
     unique_lock lock(mtx);
-    topics.insert(MqttTopic(0, topic_name, data));
+    MqttTopic topic(0, topic_name, data);
+    topics.erase(topic);
+    topics.emplace(topic);
 }
 
 MqttBinaryDataEntity CTopicStorage::GetStoredValue(const string& topic_name){
