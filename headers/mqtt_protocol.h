@@ -535,17 +535,20 @@ namespace mqtt_protocol{
     public:
         MqttTopic() = delete;
         MqttTopic(uint16_t _id, const string &_name, uint16_t _len, const uint8_t * _data);
-        MqttTopic(uint16_t _id, const string &_name, MqttBinaryDataEntity &_data);
+        MqttTopic(uint16_t _id, const string &_name, const MqttBinaryDataEntity &_data);
 
         MqttTopic(const MqttTopic &_topic) = default;
         MqttTopic(MqttTopic &&_topic) noexcept = default;
         MqttTopic& operator=(const MqttTopic &_topic) = default;
         MqttTopic& operator=(MqttTopic &&_topic) noexcept = default;
-        bool operator==(const string &str);
+        bool operator == (const string &str);
+        bool operator<(const MqttTopic& _topic) const;
 
         uint32_t GetSize();
         const uint8_t* GetData();
         string GetString() const;
+        MqttBinaryDataEntity GetValue() const;
+        MqttBinaryDataEntity& GetValueRef();
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

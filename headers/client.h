@@ -24,7 +24,7 @@ public:
     MqttPropertyChain conn_properties;
     MqttPropertyChain will_properties;
     MqttStringEntity will_topic;
-    MqttBinaryDataEntity will_payload;
+    MqttBinaryDataEntity will_message;
 
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);

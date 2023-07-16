@@ -1,0 +1,21 @@
+#ifndef MQTT_BROKER_TOPIC_STORAGE_H
+#define MQTT_BROKER_TOPIC_STORAGE_H
+
+#include "mqtt_protocol.h"
+#include <shared_mutex>
+
+using namespace mqtt_protocol;
+
+class CTopicStorage{
+public:
+    void StoreTopicValue(const string& topic_name, const MqttBinaryDataEntity& data);
+    MqttBinaryDataEntity GetStoredValue(const string& topic_name);
+    void DeleteTopicValue(const string& topic_name);
+
+private:
+    shared_mutex mtx;
+    set<MqttTopic> topics;
+};
+
+
+#endif //MQTT_BROKER_TOPIC_STORAGE_H

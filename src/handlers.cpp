@@ -57,9 +57,9 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
 
         uint16_t data_len = ConvertToHost2Bytes(buf.get() + offset);
         offset += sizeof(data_len);
-        pClient->will_payload = MqttBinaryDataEntity(data_len, buf.get() + offset);
+        pClient->will_message = MqttBinaryDataEntity(data_len, buf.get() + offset);
         offset += data_len;
-        lg->debug("will payload len: {} ", pClient->will_payload.Size());
+        lg->debug("will message len: {} ", pClient->will_message.Size());
     }
 
     return mqtt_err::ok;
@@ -74,7 +74,7 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
     vh = std::move(p_vh);
 
     //read Payload
-    lg->debug("message:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset));
+    lg->debug("message:{} retained:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset), fh.isRETAIN() ? true : false);
     message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
 
     return mqtt_err::ok;

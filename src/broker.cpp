@@ -134,6 +134,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             }
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
                                             broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
+                                            if (f_head.isRETAIN()){
+                                                broker.StoreTopicValue(vh.topic_name.GetString(), message);
+                                            }
                                             broker.NotifyClients(vh.topic_name, message);
                                         }; break;
 
@@ -175,11 +178,19 @@ void* ServerThread([[maybe_unused]] void *arg){
                                 } else {
                                     broker.lg->error("Mqtt protocol error. Can't read FixedHeader");
                                     fd_to_delete.push_back(fd);
+                                    auto pClient = broker.clients[vec_fds[i].fd];
+                                    if (pClient->isWillFlag()){
+                                        broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                                    }
                                 }
                             }
                         } else {
                             broker.lg->debug("client closed socket fd:{}", vec_fds[i].fd);
                             fd_to_delete.push_back(vec_fds[i].fd);
+                            auto pClient = broker.clients[vec_fds[i].fd];
+                            if (pClient->isWillFlag()){
+                                broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                            }
                         }
                     } else {
                         // no data from current socket
@@ -192,6 +203,9 @@ void* ServerThread([[maybe_unused]] void *arg){
                                 uint32_t answer_size;
                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)));
                                 fd_to_delete.push_back(fd);
+                                if (pClient->isWillFlag()){
+                                    broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                                }
                             }
                         }
                     }
@@ -200,9 +214,6 @@ void* ServerThread([[maybe_unused]] void *arg){
                     broker.SetState(broker_states::started);
                     for(const auto &it : fd_to_delete){
                         auto pClient = broker.clients[it];
-                        if (pClient->isWillFlag()){
-                            broker.NotifyClients(pClient->will_topic, pClient->will_payload);
-                        }
                         broker.CloseConnection(it);
                     }
                 }
@@ -361,7 +372,10 @@ int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_m
 //        if (t_iter != it.second->CEnd()){
 //            AddCommand(it.first, make_tuple(answer_size, data));
 //        }
-        if(it.second->MyTopic(topic_name.GetString())) AddCommand(it.first, make_tuple(answer_size, data));
+        if(it.second->MyTopic(topic_name.GetString())){
+            lg->debug("Add topic to send :{}", topic_name.GetString());
+            AddCommand(it.first, make_tuple(answer_size, data));
+        }
     }
     return mqtt_err::ok;
 }

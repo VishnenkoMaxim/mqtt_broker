@@ -19,6 +19,7 @@
 #include "mqtt_protocol.h"
 #include "client.h"
 #include "command.h"
+#include "topic_storage.h"
 
 using namespace std;
 using namespace libconfig;
@@ -97,7 +98,7 @@ public:
 
 void SenderThread(int id);
 
-class Broker : public Commands {
+class Broker : public Commands, public CTopicStorage {
 private:
     pthread_mutex_t clients_mtx;
     unsigned int current_clients;
