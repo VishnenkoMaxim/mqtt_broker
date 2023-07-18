@@ -366,6 +366,10 @@ void MqttBinaryDataEntity::SerializeWithoutLen(uint8_t* dst_buf, uint32_t &offse
     offset += Size()-sizeof(size);
 }
 
+bool MqttBinaryDataEntity::isEmpty(){
+    return size == 0;
+}
+
 MqttStringPairEntity::MqttStringPairEntity(const MqttStringPairEntity& _obj) noexcept{
     type = _obj.type;
     data = std::make_shared<pair<MqttStringEntity, MqttStringEntity>>(_obj.GetStringPair());

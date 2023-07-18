@@ -13,7 +13,7 @@ FixedHeader::FixedHeader(uint8_t _first) noexcept{
 }
 
 [[nodiscard]] bool    FixedHeader::isDUP() const { return first & 0x08; }
-[[nodiscard]] uint8_t FixedHeader::QoS() const {return first & 0x06;}
+[[nodiscard]] uint8_t FixedHeader::QoS() const {return (first & 0x06) >> 1;}
 [[nodiscard]] bool    FixedHeader::isRETAIN() const {return first & 0x01;}
 [[nodiscard]] uint8_t FixedHeader::GetType() const { return first>>4;}
 [[nodiscard]] uint8_t FixedHeader::GetFlags() const { return first & 0x0F; }

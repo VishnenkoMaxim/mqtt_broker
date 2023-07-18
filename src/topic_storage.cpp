@@ -1,8 +1,8 @@
 #include "topic_storage.h"
 
-void CTopicStorage::StoreTopicValue(const string& topic_name, const MqttBinaryDataEntity& data){
+void CTopicStorage::StoreTopicValue(const uint16_t id, const string& topic_name, const MqttBinaryDataEntity& data){
     unique_lock lock(mtx);
-    MqttTopic topic(0, topic_name, data);
+    MqttTopic topic(id, topic_name, data);
     topics.erase(topic);
     topics.emplace(topic);
 }

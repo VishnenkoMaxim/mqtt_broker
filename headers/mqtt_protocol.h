@@ -41,6 +41,12 @@ namespace mqtt_protocol{
 
     using namespace mqtt_pack_type;
 
+    enum mqtt_QoS : uint8_t {
+        QoS_0,
+        QoS_1,
+        QoS_2
+    };
+
     enum mqtt_property_id : uint8_t {
         payload_format_indicator = 0x01,
         message_expiry_interval = 0x02,
@@ -285,6 +291,8 @@ namespace mqtt_protocol{
         void SerializeWithoutLen(uint8_t* dst_buf, uint32_t &offset);
         [[nodiscard]] string GetString() const override;
 
+        bool isEmpty();
+
         ~MqttBinaryDataEntity() override {
             data.reset();
         }
@@ -501,13 +509,28 @@ namespace mqtt_protocol{
         vector<uint8_t> &reason_codes;
 
         SubackVH() = delete;
-        SubackVH(uint16_t _packet_id, const MqttPropertyChain &_p_chain, vector<uint8_t>& _reason_codes);
+        SubackVH(uint16_t _packet_id, const MqttPropertyChain& _p_chain, vector<uint8_t>& _reason_codes);
 
         [[nodiscard]] uint32_t GetSize() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
         void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
 
         ~SubackVH() override = default;
+    };
+
+    class PubackVH : public IVariableHeader{
+    public:
+        uint16_t packet_id;
+        uint8_t reason_code;
+        MqttPropertyChain p_chain;
+
+        PubackVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain  _p_chain);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~PubackVH() override = default;
     };
 
     class VariableHeader final : public IVariableHeader{

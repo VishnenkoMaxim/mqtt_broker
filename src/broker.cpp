@@ -66,10 +66,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                 time(&current_time);
                 for(unsigned int i=0; i<client_num; i++) {
                     if (vec_fds[i].revents != 0) {
-//                        broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
-//                                  (vec_fds[i].revents & POLLIN) ? "POLLIN " : "",
-//                                  (vec_fds[i].revents & POLLHUP) ? "POLLHUP " : "",
-//                                  (vec_fds[i].revents & POLLERR) ? "POLLERR " : "");
+                        broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
+                                  (vec_fds[i].revents & POLLIN) ? "POLLIN " : "",
+                                  (vec_fds[i].revents & POLLHUP) ? "POLLHUP " : "",
+                                  (vec_fds[i].revents & POLLERR) ? "POLLERR " : "");
 
                         if (vec_fds[i].revents & POLLIN) {
                             vec_fds[i].revents = 0;
@@ -135,7 +135,17 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
                                             broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
                                             if (f_head.isRETAIN()){
-                                                broker.StoreTopicValue(vh.topic_name.GetString(), message);
+                                                broker.StoreTopicValue(vh.packet_id, vh.topic_name.GetString(), message);
+                                            }
+                                            auto pClient = broker.clients[vec_fds[i].fd];
+                                            if (f_head.QoS() == mqtt_QoS::QoS_1){
+                                                pClient->AddQoS_1(MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
+
+                                                uint32_t answer_size;
+                                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
+                                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
+                                            } else if (f_head.QoS() == mqtt_QoS::QoS_2){
+                                                pClient->AddQoS_2(MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
                                             }
                                             broker.NotifyClients(vh.topic_name, message);
                                         }; break;
@@ -162,7 +172,7 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                             for (const auto& it : tpcs){
                                                 MqttBinaryDataEntity data = broker.GetStoredValue(it);
-                                                if(data.Size() != 0){
+                                                if(!data.isEmpty()){
                                                     broker.lg->debug("Found retain topic:{}", it);
                                                     MqttStringEntity e_string(it);
                                                     broker.NotifyClient(fd, e_string, data);
@@ -365,7 +375,6 @@ int Broker::ReadFixedHeader(const int fd, FixedHeader &f_hed){
 string Broker::GetControlPacketTypeName(const uint8_t _packet){
     return pack_type_names[_packet];
 }
-
 void Broker::CloseConnection(int fd){
     lg->debug("Close connection fd:{}", fd);
     close(fd);
@@ -377,11 +386,7 @@ int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_m
     uint32_t answer_size;
     shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
 
-    for(const auto & it : clients){
-//        auto t_iter = it.second->CFind(topic_name.GetString());
-//        if (t_iter != it.second->CEnd()){
-//            AddCommand(it.first, make_tuple(answer_size, data));
-//        }
+    for(const auto& it : clients){
         if(it.second->MyTopic(topic_name.GetString())){
             lg->debug("Add topic to send :{}", topic_name.GetString());
             AddCommand(it.first, make_tuple(answer_size, data));

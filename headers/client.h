@@ -18,6 +18,9 @@ private:
     uint16_t alive;
     time_t time_last_packet;
 
+    list<MqttTopic> QoS_1_events;
+    list<MqttTopic> QoS_2_events;
+
 public:
     explicit Client(string _ip);
 
@@ -31,6 +34,9 @@ public:
     void SetID(const string& _id);
     void AddSubscription(const string &_topic_name, uint8_t options);
     bool MyTopic(const string &_topic);
+
+    void AddQoS_1(MqttTopic&& topic);
+    void AddQoS_2(MqttTopic&& topic);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;
