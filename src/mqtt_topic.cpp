@@ -29,7 +29,7 @@ MqttBinaryDataEntity MqttTopic::GetValue() const{
     return data;
 }
 
-MqttBinaryDataEntity& MqttTopic::GetValueRef(){
+MqttBinaryDataEntity& MqttTopic::GetValueRef() {
     return data;
 }
 

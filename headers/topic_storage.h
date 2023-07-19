@@ -9,7 +9,7 @@ using namespace mqtt_protocol;
 class CTopicStorage{
 public:
     void StoreTopicValue(const uint16_t id, const string& topic_name, const MqttBinaryDataEntity& data);
-    MqttBinaryDataEntity GetStoredValue(const string& topic_name);
+    MqttBinaryDataEntity GetStoredValue(const string& topic_name, bool& found);
     void DeleteTopicValue(const string& topic_name);
 
 private:

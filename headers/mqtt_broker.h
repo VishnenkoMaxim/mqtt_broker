@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <poll.h>
 #include <sys/un.h>
+#include <thread>
+#include <chrono>
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/rotating_file_sink.h"
@@ -90,7 +92,7 @@ public:
     }
 
     void ShowTopics(){
-        for(auto it : topics_to_pub){
+        for(const auto& it : topics_to_pub){
             cout << "topic: " << it.GetString() << endl;
         }
     }
@@ -100,7 +102,7 @@ void SenderThread(int id);
 
 class Broker : public Commands, public CTopicStorage {
 private:
-    pthread_mutex_t clients_mtx;
+    shared_mutex clients_mtx;
     unsigned int current_clients;
     map<int, shared_ptr<Client>> clients;
     unordered_multimap<string, int> subscribe_data;
@@ -124,10 +126,15 @@ private:
     void CloseConnection(int fd);
 
     int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message);
-    int NotifyClient(const int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity &_message);
+    int NotifyClient(int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity& _message);
+
+    multimap<string, MqttTopic> QoS_events;
+    shared_mutex qos_mutex;
+
 public:
     friend void* ServerThread (void *arg);
     friend void SenderThread(int id);
+    friend void QoSThread();
 
     static Broker& GetInstance(){
         static Broker instance;
@@ -137,6 +144,8 @@ public:
     int AddClient(int sock, const string &_ip);
     void DelClient(int sock);
     int InitControlSocket();
+
+    void AddQosEvent(const string& client_id, const MqttTopic& mqtt_message);
 
     uint32_t GetClientCount() noexcept;
     int     GetState()noexcept;

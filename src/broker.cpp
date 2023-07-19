@@ -23,6 +23,37 @@ void SenderThread(int id){
     }
 }
 
+void QoSThread(){
+    Broker& broker = Broker::GetInstance();
+    broker.lg->debug("Start QoSThread{}");
+
+    shared_lock<shared_mutex> lock(broker.qos_mutex);
+    lock.unlock();
+    map<string, int> clients_map;
+
+    while(true){
+        lock.lock();
+        clients_map.clear();
+
+        shared_lock<shared_mutex> lock_cl(broker.clients_mtx);
+        for(const auto& it_cl : broker.clients){
+            clients_map.insert(make_pair(it_cl.second->GetID(), it_cl.first));
+        }
+        lock_cl.unlock();
+
+        for(const auto& it : broker.QoS_events){
+            auto cl_it = clients_map.find(it.first);
+            if (cl_it != clients_map.end()){
+                MqttStringEntity e_string(it.second.GetString());
+                MqttBinaryDataEntity data(it.second.GetValue());
+                broker.NotifyClient(cl_it->second, e_string, data);
+            }
+        }
+        lock.unlock();
+        this_thread::sleep_for(chrono::seconds(1));
+    }
+}
+
 void* ServerThread([[maybe_unused]] void *arg){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start ServerThread");
@@ -66,10 +97,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                 time(&current_time);
                 for(unsigned int i=0; i<client_num; i++) {
                     if (vec_fds[i].revents != 0) {
-                        broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
-                                  (vec_fds[i].revents & POLLIN) ? "POLLIN " : "",
-                                  (vec_fds[i].revents & POLLHUP) ? "POLLHUP " : "",
-                                  (vec_fds[i].revents & POLLERR) ? "POLLERR " : "");
+//                        broker.lg->debug("Event: fd:{} events:{}{}{}", vec_fds[i].fd,
+//                                  (vec_fds[i].revents & POLLIN) ? "POLLIN " : "",
+//                                  (vec_fds[i].revents & POLLHUP) ? "POLLHUP " : "",
+//                                  (vec_fds[i].revents & POLLERR) ? "POLLERR " : "");
 
                         if (vec_fds[i].revents & POLLIN) {
                             vec_fds[i].revents = 0;
@@ -139,13 +170,13 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             }
                                             auto pClient = broker.clients[vec_fds[i].fd];
                                             if (f_head.QoS() == mqtt_QoS::QoS_1){
-                                                pClient->AddQoS_1(MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
+                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
 
                                                 uint32_t answer_size;
                                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
                                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
                                             } else if (f_head.QoS() == mqtt_QoS::QoS_2){
-                                                pClient->AddQoS_2(MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
+                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
                                             }
                                             broker.NotifyClients(vh.topic_name, message);
                                         }; break;
@@ -170,9 +201,10 @@ void* ServerThread([[maybe_unused]] void *arg){
                                             uint32_t answer_size;
                                             broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
 
+                                            bool found;
                                             for (const auto& it : tpcs){
-                                                MqttBinaryDataEntity data = broker.GetStoredValue(it);
-                                                if(!data.isEmpty()){
+                                                MqttBinaryDataEntity data = broker.GetStoredValue(it, found);
+                                                if(found){
                                                     broker.lg->debug("Found retain topic:{}", it);
                                                     MqttStringEntity e_string(it);
                                                     broker.NotifyClient(fd, e_string, data);
@@ -248,9 +280,11 @@ void* ServerThread([[maybe_unused]] void *arg){
 int Broker::AddClient(int sock, const string &_ip){
     current_clients++;
     shared_ptr<Client> new_client = std::make_shared<Client>(_ip);
-    pthread_mutex_lock(&clients_mtx);
+
+    unique_lock<shared_mutex> lock(clients_mtx);
     auto ret = clients.insert(make_pair(sock, new_client));
-    pthread_mutex_unlock(&clients_mtx);
+    lock.unlock();
+
     if (ret.second == true) {
         if (state == broker_states::wait) SendCommand("ADD", 3);
         return broker_err::ok;
@@ -261,10 +295,9 @@ void Broker::DelClient(int sock){
     lg->debug("DelClient");
     current_clients--;
     lg->debug("Total cl_num: {}", current_clients);
-    pthread_mutex_lock(&clients_mtx);
+
+    unique_lock<shared_mutex> lock(clients_mtx);
     clients.erase(sock);
-    pthread_mutex_unlock(&clients_mtx);
-    lg->flush();
 }
 
 uint32_t Broker::GetClientCount() noexcept {
@@ -395,11 +428,16 @@ int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_m
     return mqtt_err::ok;
 }
 
-int Broker::NotifyClient(const int fd,MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
+int Broker::NotifyClient(const int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, MqttPropertyChain()))};
     uint32_t answer_size;
     shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
     lg->debug("Add topic to send :{}", topic_name.GetString());
     AddCommand(fd, make_tuple(answer_size, data));
     return mqtt_err::ok;
+}
+
+void Broker::AddQosEvent(const string& client_id, const MqttTopic& mqtt_message){
+    unique_lock<shared_mutex> lock(qos_mutex);
+    QoS_events.insert(make_pair(client_id, mqtt_message));
 }

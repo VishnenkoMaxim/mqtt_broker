@@ -7,12 +7,15 @@ void CTopicStorage::StoreTopicValue(const uint16_t id, const string& topic_name,
     topics.emplace(topic);
 }
 
-MqttBinaryDataEntity CTopicStorage::GetStoredValue(const string& topic_name){
+MqttBinaryDataEntity CTopicStorage::GetStoredValue(const string& topic_name, bool& found){
     shared_lock lock(mtx);
+    found = false;
     MqttTopic tmp_topic(0, topic_name, MqttBinaryDataEntity{});
     auto it = topics.find(tmp_topic);
-    if(it != topics.end())
+    if(it != topics.end()) {
+        found = true;
         return it->GetValue();
+    }
     return MqttBinaryDataEntity{};
 }
 

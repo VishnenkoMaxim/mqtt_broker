@@ -74,11 +74,3 @@ bool Client::MyTopic(const string &_topic){
     if (subscribed_topics.find(_topic) != subscribed_topics.end()) return true;
     return false;
 }
-
-void Client::AddQoS_1(MqttTopic&& topic){
-    QoS_1_events.push_back(topic);
-}
-
-void Client::AddQoS_2(MqttTopic&& topic){
-    QoS_2_events.push_back(topic);
-}
