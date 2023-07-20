@@ -45,8 +45,9 @@ void QoSThread(){
             auto cl_it = clients_map.find(it.first);
             if (cl_it != clients_map.end()){
                 MqttStringEntity e_string(it.second.GetString());
-                MqttBinaryDataEntity data(it.second.GetValue());
-                broker.NotifyClient(cl_it->second, e_string, data);
+                auto pData = it.second.GetPtr();
+
+                broker.NotifyClient(cl_it->second, e_string, *pData, mqtt_QoS::QoS_1, it.second.GetID());
             }
         }
         lock.unlock();
@@ -156,29 +157,31 @@ void* ServerThread([[maybe_unused]] void *arg){
                                         case mqtt_pack_type::PUBLISH:{
                                             PublishVH vh;
                                             MqttBinaryDataEntity message;
+                                            auto pMessage = make_shared<MqttBinaryDataEntity>();
 
-                                            int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, message);
+                                            //int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, message);
+                                            int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, pMessage);
                                             if (handle_stat != mqtt_err::ok){
                                                 broker.lg->error("handle PUBLISH error");
                                                 fd_to_delete.push_back(fd);
                                                 break;
                                             }
                                             broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
-                                            broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), message.Size()-2);
+                                            broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), pMessage->Size()-2);
                                             if (f_head.isRETAIN()){
-                                                broker.StoreTopicValue(vh.packet_id, vh.topic_name.GetString(), message);
+                                                broker.StoreTopicValue(vh.packet_id, vh.topic_name.GetString(), pMessage);
                                             }
                                             auto pClient = broker.clients[vec_fds[i].fd];
                                             if (f_head.QoS() == mqtt_QoS::QoS_1){
-                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
-
+                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), pMessage));
+                                                broker.lg->info("use_count:{}", pMessage.use_count());
                                                 uint32_t answer_size;
                                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
                                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
                                             } else if (f_head.QoS() == mqtt_QoS::QoS_2){
-                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), message));
+                                                broker.AddQosEvent(pClient->GetID(), MqttTopic(vh.packet_id, vh.topic_name.GetString(), pMessage));
                                             }
-                                            broker.NotifyClients(vh.topic_name, message);
+                                            broker.NotifyClients(vh.topic_name, *pMessage, f_head.QoS(), vh.packet_id);
                                         }; break;
 
                                         case mqtt_pack_type::SUBSCRIBE : {
@@ -203,11 +206,13 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                             bool found;
                                             for (const auto& it : tpcs){
-                                                MqttBinaryDataEntity data = broker.GetStoredValue(it, found);
+                                                //MqttBinaryDataEntity data = broker.GetStoredValue(it, found);
+                                                auto data = broker.GetStoredValuePtr(it, found);
+
                                                 if(found){
                                                     broker.lg->debug("Found retain topic:{}", it);
                                                     MqttStringEntity e_string(it);
-                                                    broker.NotifyClient(fd, e_string, data);
+                                                    broker.NotifyClient(fd, e_string, *data, f_head.QoS(), vh.packet_id);
                                                 }
                                             }
                                         }; break;
@@ -232,7 +237,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                     fd_to_delete.push_back(fd);
                                     auto pClient = broker.clients[vec_fds[i].fd];
                                     if (pClient->isWillFlag()){
-                                        broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                                        broker.NotifyClients(pClient->will_topic, pClient->will_message, mqtt_QoS::QoS_0, 0);
                                     }
                                 }
                             }
@@ -241,7 +246,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                             fd_to_delete.push_back(vec_fds[i].fd);
                             auto pClient = broker.clients[vec_fds[i].fd];
                             if (pClient->isWillFlag()){
-                                broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                                broker.NotifyClients(pClient->will_topic, pClient->will_message, mqtt_QoS::QoS_0, 0);
                             }
                         }
                     } else {
@@ -256,7 +261,7 @@ void* ServerThread([[maybe_unused]] void *arg){
                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)));
                                 fd_to_delete.push_back(fd);
                                 if (pClient->isWillFlag()){
-                                    broker.NotifyClients(pClient->will_topic, pClient->will_message);
+                                    broker.NotifyClients(pClient->will_topic, pClient->will_message, mqtt_QoS::QoS_0, 0);
                                 }
                             }
                         }
@@ -414,10 +419,10 @@ void Broker::CloseConnection(int fd){
     DelClient(fd);
 }
 
-int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
-    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, MqttPropertyChain()))};
+int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message, uint8_t _qos, uint16_t _packet_id){
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, _packet_id, MqttPropertyChain()))};
     uint32_t answer_size;
-    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
+    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | _qos << 1, answer_vh, _message, answer_size);
 
     for(const auto& it : clients){
         if(it.second->MyTopic(topic_name.GetString())){
@@ -428,10 +433,10 @@ int Broker::NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_m
     return mqtt_err::ok;
 }
 
-int Broker::NotifyClient(const int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity &_message){
-    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, 0, MqttPropertyChain()))};
+int Broker::NotifyClient(const int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity &_message, uint8_t _qos, uint16_t _packet_id){
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(topic_name, _packet_id, MqttPropertyChain()))};
     uint32_t answer_size;
-    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4, answer_vh, _message, answer_size);
+    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | _qos << 1, answer_vh, _message, answer_size);
     lg->debug("Add topic to send :{}", topic_name.GetString());
     AddCommand(fd, make_tuple(answer_size, data));
     return mqtt_err::ok;

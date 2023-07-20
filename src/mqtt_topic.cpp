@@ -2,8 +2,7 @@
 
 using namespace mqtt_protocol;
 
-MqttTopic::MqttTopic(uint16_t _id, const string &_name, uint16_t _len, const uint8_t * _data) : id(_id), name(_name), data(_len, _data){}
-MqttTopic::MqttTopic(uint16_t _id, const string &_name, const MqttBinaryDataEntity &_data) : id(_id), name(_name), data(_data){}
+MqttTopic::MqttTopic(uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data) : id(_id), name(_name), data(_data){}
 
 bool MqttTopic::operator==(const string &str){
     return name == str;
@@ -14,22 +13,26 @@ bool MqttTopic::operator <(const MqttTopic& _topic) const{
 }
 
 uint32_t MqttTopic::GetSize(){
-    return data.Size() - 2;
+    return data->Size() - 2;
 }
 
 const uint8_t* MqttTopic::GetData(){
-    return data.GetData();
+    return data->GetData();
 }
 
 string MqttTopic::GetString() const {
-    return data.GetString();
+    return data->GetString();
 }
 
 MqttBinaryDataEntity MqttTopic::GetValue() const{
+    return *data;
+}
+
+shared_ptr<MqttBinaryDataEntity> MqttTopic::GetPtr() const{
     return data;
 }
 
-MqttBinaryDataEntity& MqttTopic::GetValueRef() {
-    return data;
+uint16_t MqttTopic::GetID() const{
+    return id;
 }
 

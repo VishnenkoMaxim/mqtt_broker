@@ -551,14 +551,13 @@ namespace mqtt_protocol{
 
     class MqttTopic{
     private:
-        [[maybe_unused]] uint16_t id;
+        uint16_t id;
         string name;
-        MqttBinaryDataEntity data;
+        shared_ptr<MqttBinaryDataEntity> data;
 
     public:
         MqttTopic() = delete;
-        MqttTopic(uint16_t _id, const string &_name, uint16_t _len, const uint8_t * _data);
-        MqttTopic(uint16_t _id, const string &_name, const MqttBinaryDataEntity &_data);
+        MqttTopic(uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data);
 
         MqttTopic(const MqttTopic &_topic) = default;
         MqttTopic(MqttTopic &&_topic) noexcept = default;
@@ -569,9 +568,10 @@ namespace mqtt_protocol{
 
         uint32_t GetSize();
         const uint8_t* GetData();
-        string GetString() const;
-        MqttBinaryDataEntity GetValue() const;
-        MqttBinaryDataEntity& GetValueRef();
+        [[nodiscard]] shared_ptr<MqttBinaryDataEntity> GetPtr() const;
+        [[nodiscard]] string GetString() const;
+        [[nodiscard]] MqttBinaryDataEntity GetValue() const;
+        [[nodiscard]] uint16_t GetID() const;
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

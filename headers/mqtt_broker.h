@@ -125,8 +125,8 @@ private:
     string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 
-    int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message);
-    int NotifyClient(int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity& _message);
+    int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message, uint8_t qos, uint16_t _packet_id);
+    int NotifyClient(int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity& _message, uint8_t qos, uint16_t _packet_id);
 
     multimap<string, MqttTopic> QoS_events;
     shared_mutex qos_mutex;
@@ -159,6 +159,7 @@ public:
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
+int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message);
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics);
 
