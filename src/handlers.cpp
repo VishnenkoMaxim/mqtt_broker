@@ -116,5 +116,14 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
         subscribe_topics.push_back(topic_name);
         lg->info("{}: subscribed to topic:'{}'", pClient->GetIP(), topic_name);
     }
+    lg->flush();
+    return mqtt_err::ok;
+}
+
+int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PubackVH&  p_vh){
+    lg->debug("HandleMqttPuback");
+    uint32_t offset = 0;
+
+    p_vh.ReadFromBuf(buf.get(), offset);
     return mqtt_err::ok;
 }

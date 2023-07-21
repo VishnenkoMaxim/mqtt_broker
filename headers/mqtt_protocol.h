@@ -524,6 +524,7 @@ namespace mqtt_protocol{
         uint8_t reason_code;
         MqttPropertyChain p_chain;
 
+        PubackVH() = default;
         PubackVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain  _p_chain);
 
         [[nodiscard]] uint32_t GetSize() const override;
@@ -551,13 +552,14 @@ namespace mqtt_protocol{
 
     class MqttTopic{
     private:
+        uint8_t qos;
         uint16_t id;
         string name;
         shared_ptr<MqttBinaryDataEntity> data;
 
     public:
         MqttTopic() = delete;
-        MqttTopic(uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data);
+        MqttTopic(uint8_t _qos, uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data);
 
         MqttTopic(const MqttTopic &_topic) = default;
         MqttTopic(MqttTopic &&_topic) noexcept = default;
@@ -572,6 +574,8 @@ namespace mqtt_protocol{
         [[nodiscard]] string GetString() const;
         [[nodiscard]] MqttBinaryDataEntity GetValue() const;
         [[nodiscard]] uint16_t GetID() const;
+        [[nodiscard]] uint8_t GetQoS() const;
+        [[nodiscard]] string GetName() const;
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

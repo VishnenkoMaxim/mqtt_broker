@@ -146,6 +146,8 @@ public:
     int InitControlSocket();
 
     void AddQosEvent(const string& client_id, const MqttTopic& mqtt_message);
+    void DelQosEvent(const string& client_id, const uint16_t packet_id);
+    void DelClientQosEvents(const string& client_id);
 
     uint32_t GetClientCount() noexcept;
     int     GetState()noexcept;
@@ -162,6 +164,7 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message);
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics);
+int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PubackVH&  p_vh);
 
 
 #endif //MQTT_BROKER_H

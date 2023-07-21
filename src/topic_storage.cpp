@@ -1,8 +1,14 @@
 #include "topic_storage.h"
 
-void CTopicStorage::StoreTopicValue(const uint16_t id, const string& topic_name, const shared_ptr<MqttBinaryDataEntity>& data){
+void CTopicStorage::StoreTopicValue(const uint8_t qos, const uint16_t id, const string& topic_name, const shared_ptr<MqttBinaryDataEntity>& data){
     unique_lock lock(mtx);
-    MqttTopic topic(id, topic_name, data);
+    MqttTopic topic(qos, id, topic_name, data);
+    topics.erase(topic);
+    topics.emplace(topic);
+}
+
+void CTopicStorage::StoreTopicValue(const MqttTopic& topic){
+    unique_lock lock(mtx);
     topics.erase(topic);
     topics.emplace(topic);
 }
@@ -10,7 +16,7 @@ void CTopicStorage::StoreTopicValue(const uint16_t id, const string& topic_name,
 MqttBinaryDataEntity CTopicStorage::GetStoredValue(const string& topic_name, bool& found){
     shared_lock lock(mtx);
     found = false;
-    MqttTopic tmp_topic(0, topic_name, nullptr);
+    MqttTopic tmp_topic(0, 0, topic_name, nullptr);
     auto it = topics.find(tmp_topic);
     if(it != topics.end()) {
         found = true;
@@ -19,19 +25,29 @@ MqttBinaryDataEntity CTopicStorage::GetStoredValue(const string& topic_name, boo
     return MqttBinaryDataEntity{};
 }
 
-shared_ptr<MqttBinaryDataEntity> CTopicStorage::GetStoredValuePtr(const string& topic_name, bool& found){
+shared_ptr<MqttBinaryDataEntity> CTopicStorage::GetStoredValuePtr(const string& topic_name){
     shared_lock lock(mtx);
-    found = false;
-    MqttTopic tmp_topic(0, topic_name, nullptr);
+    MqttTopic tmp_topic(0, 0, topic_name, nullptr);
     auto it = topics.find(tmp_topic);
     if(it != topics.end()) {
-        found = true;
         return it->GetPtr();
     }
     return nullptr;
 }
 
-void CTopicStorage::DeleteTopicValue(const string& topic_name){
+MqttTopic CTopicStorage::GetTopic(const string& topic_name, bool& found) {
+    shared_lock lock(mtx);
+    found = false;
+    MqttTopic tmp_topic(0, 0, topic_name, nullptr);
+    auto it = topics.find(tmp_topic);
+    if(it != topics.end()) {
+        found = true;
+        return *it;
+    }
+    return tmp_topic;
+}
+
+void CTopicStorage::DeleteTopicValue(const MqttTopic& _topic){
     unique_lock lock(mtx);
-    topics.erase(MqttTopic(0, topic_name, nullptr));
+    topics.erase(_topic);
 }

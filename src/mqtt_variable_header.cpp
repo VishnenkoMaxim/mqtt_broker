@@ -262,12 +262,12 @@ void PubackVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     packet_id = tmp;
     local_offset += sizeof(packet_id);
 
-    memcpy(&reason_code, buf + local_offset, sizeof(reason_code));
-    local_offset += sizeof(reason_code);
-
-    uint32_t property_len = 0;
-    p_chain.Create(buf + local_offset, property_len);
-    local_offset += property_len;
+//    memcpy(&reason_code, buf + local_offset, sizeof(reason_code));
+//    local_offset += sizeof(reason_code);
+//
+//    uint32_t property_len = 0;
+//    p_chain.Create(buf + local_offset, property_len);
+//    local_offset += property_len;
 
     offset += local_offset;
 }
