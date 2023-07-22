@@ -558,7 +558,7 @@ namespace mqtt_protocol{
         shared_ptr<MqttBinaryDataEntity> data;
 
     public:
-        MqttTopic() = delete;
+        MqttTopic() = default;
         MqttTopic(uint8_t _qos, uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data);
 
         MqttTopic(const MqttTopic &_topic) = default;
@@ -576,6 +576,8 @@ namespace mqtt_protocol{
         [[nodiscard]] uint16_t GetID() const;
         [[nodiscard]] uint8_t GetQoS() const;
         [[nodiscard]] string GetName() const;
+
+        void SetPacketID(uint16_t new_id);
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

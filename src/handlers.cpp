@@ -15,6 +15,10 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
 
+    lg->debug("Connection flags:{}{}{}{}{}{}", (pClient->isCleanFlag()) ? "CleanStart " : "", (pClient->isWillFlag()) ? "WillFlag " : "",
+                                            (pClient->WillQoSFlag()) ? "WillQoS " : "", (pClient->isWillRetFlag()) ? "WillRetainFlag " : "",
+                                            (pClient->isPwdFlag()) ? "PWDFlag " : "", (pClient->isUserNameFlag()) ? "USRNameFlag " : "");
+
     //read properties
     uint32_t property_size;
     int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);

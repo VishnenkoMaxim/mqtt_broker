@@ -45,3 +45,7 @@ uint8_t MqttTopic::GetQoS() const{
 string MqttTopic::GetName() const{
     return name;
 }
+
+void MqttTopic::SetPacketID(uint16_t new_id){
+    id = new_id;
+}

@@ -31,13 +31,18 @@ void QoSThread(){
     lock.unlock();
 
     while(true){
-        lock.lock();
+        if (!broker.QoS_events.empty()){
+            lock.lock();
 
-        shared_lock<shared_mutex> lock_2(broker.clients_mtx);
-        for(const auto &it : broker.clients){
-            //
+            shared_lock<shared_mutex> lock_2(broker.clients_mtx);
+            for(const auto &it : broker.clients){
+                //
+            }
+            lock_2.unlock();
+
+            lock.unlock();
         }
-        lock_2.unlock();
+
 
 //        for(const auto& it_fd : fd_lst){
 //            //auto it = broker.QoS_events.find(it_fd);
@@ -49,7 +54,7 @@ void QoSThread(){
 //                broker.NotifyClient(it_fd, e_string, *pData, x.second.GetQoS(), x.second.GetID());
 //            });
 //        }
-        lock.unlock();
+
 
         this_thread::sleep_for(chrono::seconds(1));
     }
@@ -209,9 +214,14 @@ void* ServerThread([[maybe_unused]] void *arg){
 
                                                 if(found){
                                                     auto data = retain_topic.GetValue();
-                                                    broker.lg->debug("Found retain topic:{}", it);
+                                                    broker.lg->debug("Found retain topic:{} qos:{}", it, retain_topic.GetQoS());
                                                     MqttStringEntity e_string(it);
                                                     broker.NotifyClient(fd, e_string, data, retain_topic.GetQoS(),vh.packet_id);
+                                                    if (retain_topic.GetQoS() != mqtt_QoS::QoS_0){
+                                                        auto pClient = broker.clients[vec_fds[i].fd];
+                                                        retain_topic.SetPacketID(vh.packet_id);
+                                                        broker.AddQosEvent(pClient->GetID(), retain_topic);
+                                                    }
                                                 }
                                             }
                                         }; break;
@@ -452,7 +462,8 @@ int Broker::NotifyClient(const int fd, MqttStringEntity &topic_name, MqttBinaryD
 void Broker::AddQosEvent(const string& client_id, const MqttTopic& mqtt_message){
     unique_lock<shared_mutex> lock(qos_mutex);
     QoS_events.insert(make_pair(client_id, mqtt_message));
-    lg->debug("AddQos for client_id:{} total count: {}", client_id, QoS_events.size());
+    lg->debug("AddQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, mqtt_message.GetQoS(), mqtt_message.GetName(), mqtt_message.GetID());
+    lg->debug("total count:{}", QoS_events.size());
 }
 
 void Broker::DelQosEvent(const string& client_id, const uint16_t packet_id){
@@ -461,6 +472,8 @@ void Broker::DelQosEvent(const string& client_id, const uint16_t packet_id){
     while(it != QoS_events.end() && it->first == client_id){
         if (it->second.GetID() == packet_id) {
             QoS_events.erase(it);
+            lg->debug("DelQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, it->second.GetQoS(), it->second.GetName(), it->second.GetID());
+            lg->debug("total count:{}", QoS_events.size());
             return;
         }
         it++;

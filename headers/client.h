@@ -26,6 +26,7 @@ public:
     MqttStringEntity will_topic;
     MqttBinaryDataEntity will_message;
 
+
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
     void SetID(const string& _id);
