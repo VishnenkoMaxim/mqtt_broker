@@ -468,6 +468,7 @@ namespace mqtt_protocol{
         PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, uint32_t &offset);
         PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain);
         PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain);
+        PublishVH(MqttStringEntity &&_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain);
 
         PublishVH(const PublishVH &_vh);
         PublishVH(PublishVH &&_vh) noexcept;
@@ -589,7 +590,7 @@ namespace mqtt_protocol{
 
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, uint32_t &size);
     shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size);
-    shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttBinaryDataEntity &message, uint32_t &size);
+    shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, const shared_ptr<MqttBinaryDataEntity> &message, uint32_t &size);
 }
 
 #endif //MQTT_BROKER_MQTT_PROTOCOL_H

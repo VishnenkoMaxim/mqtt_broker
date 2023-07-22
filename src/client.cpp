@@ -1,6 +1,6 @@
 #include "client.h"
 
-Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0), will_topic(string{}){
+Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0) {
     //
 }
 
@@ -25,7 +25,7 @@ bool Client::isWillRetFlag() const {
 }
 
 uint8_t Client::WillQoSFlag() const {
-    return flags & 0x18;
+    return flags & 0x18 >> 3;
 }
 
 bool Client::isWillFlag() const {

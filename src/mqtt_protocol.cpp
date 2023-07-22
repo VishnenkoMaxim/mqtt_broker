@@ -754,10 +754,10 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, uint32_t 
     return ptr;
 }
 
-shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, MqttBinaryDataEntity &message, uint32_t &size){
+shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, const shared_ptr<MqttBinaryDataEntity> &message, uint32_t &size){
     FixedHeader fh(pack_type);
 
-    size = vh.GetSize() + message.Size()-2;
+    size = vh.GetSize() + message->Size()-2;
     if(fh.QoS() == 0) size -= 2; //delete id packet if quos is 0
 
     fh.remaining_len = size;
@@ -772,7 +772,7 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
 
     fh.Serialize(ptr.get(), offset);
     vh.Serialize(ptr.get() + offset, offset);
-    message.SerializeWithoutLen(ptr.get() + offset, offset);
+    message->SerializeWithoutLen(ptr.get() + offset, offset);
 
     assert(size == offset);
     return ptr;

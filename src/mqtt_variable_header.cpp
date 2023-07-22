@@ -110,6 +110,7 @@ PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, 
 
 PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(_p_chain){}
 PublishVH::PublishVH(MqttStringEntity &_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain) : topic_name(_topic_name), packet_id(_packet_id), p_chain(std::move(_p_chain)){}
+PublishVH::PublishVH(MqttStringEntity &&_topic_name, uint16_t _packet_id, MqttPropertyChain &&_p_chain) : topic_name(std::move(_topic_name)), packet_id(_packet_id), p_chain(std::move(_p_chain)) {}
 PublishVH::PublishVH(PublishVH &&_vh) noexcept : topic_name(std::move(_vh.topic_name)), packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
 PublishVH::PublishVH(const PublishVH &_vh) : topic_name(_vh.topic_name), packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
 

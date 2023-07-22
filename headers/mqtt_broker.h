@@ -125,8 +125,8 @@ private:
     string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 
-    int NotifyClients(MqttStringEntity &topic_name, MqttBinaryDataEntity &_message, uint8_t qos, uint16_t _packet_id);
-    int NotifyClient(int fd, MqttStringEntity &topic_name, MqttBinaryDataEntity& _message, uint8_t qos, uint16_t _packet_id);
+    int NotifyClients(const MqttTopic& topic);
+    int NotifyClient(int fd, const MqttTopic& topic);
 
     multimap<string, MqttTopic> QoS_events;
     shared_mutex qos_mutex;

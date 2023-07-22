@@ -52,18 +52,24 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
         }
         offset += will_property_size;
         lg->debug("will properties count: {} ", pClient->will_properties.Count());
+        lg->flush();
 
         uint16_t str_len = ConvertToHost2Bytes(buf.get() + offset);
         offset += sizeof(str_len);
-        pClient->will_topic = string((char *) (buf.get() + offset), str_len);
+        string will_topic_name = string((char *) (buf.get() + offset), str_len);
         offset += str_len;
-        lg->debug("will topic: {} ", pClient->will_topic.GetString());
+        lg->debug("will topic: {} WillQoS:{}", will_topic_name, pClient->WillQoSFlag());
+        lg->flush();
 
         uint16_t data_len = ConvertToHost2Bytes(buf.get() + offset);
         offset += sizeof(data_len);
-        pClient->will_message = MqttBinaryDataEntity(data_len, buf.get() + offset);
+
+        auto pMessage = make_shared<MqttBinaryDataEntity>(MqttBinaryDataEntity(data_len, buf.get() + offset));
+
+        pClient->will_topic = MqttTopic(pClient->WillQoSFlag(), 1, will_topic_name, pMessage);
         offset += data_len;
-        lg->debug("will message len: {} ", pClient->will_message.Size());
+        lg->debug("will message len: {} ", pClient->will_topic.GetSize());
+        lg->flush();
     }
 
     return mqtt_err::ok;
