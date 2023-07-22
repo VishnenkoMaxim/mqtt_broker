@@ -1,7 +1,9 @@
 #include "client.h"
 
 Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0) {
-    //
+    time_t _cur_time;
+    time(&_cur_time);
+    SetPacketLastTime(_cur_time);
 }
 
 void Client::SetConnFlags(uint8_t _flags){

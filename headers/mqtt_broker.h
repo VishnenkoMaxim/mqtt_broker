@@ -128,8 +128,11 @@ private:
     int NotifyClients(const MqttTopic& topic);
     int NotifyClient(int fd, const MqttTopic& topic);
 
-    multimap<string, MqttTopic> QoS_events;
+    unordered_multimap<string, MqttTopic> QoS_events;
     shared_mutex qos_mutex;
+    bool CheckTopicPresence(const string& client_id, const MqttTopic& topic);
+    thread qos_thread;
+    bool qos_thread_started{false};
 
 public:
     friend void* ServerThread (void *arg);
