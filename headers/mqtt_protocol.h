@@ -579,6 +579,7 @@ namespace mqtt_protocol{
         [[nodiscard]] string GetName() const;
 
         void SetPacketID(uint16_t new_id);
+        void SetQos(uint8_t _qos);
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

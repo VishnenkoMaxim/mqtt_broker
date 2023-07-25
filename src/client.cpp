@@ -1,6 +1,6 @@
 #include "client.h"
 
-Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0) {
+Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0), packet_id_gen(1) {
     time_t _cur_time;
     time(&_cur_time);
     SetPacketLastTime(_cur_time);
@@ -72,7 +72,15 @@ unordered_map<string, uint8_t>::const_iterator Client::CEnd(){
     return subscribed_topics.cend();
 }
 
-bool Client::MyTopic(const string &_topic){
-    if (subscribed_topics.find(_topic) != subscribed_topics.end()) return true;
+bool Client::MyTopic(const string &_topic, uint8_t& options){
+    auto it = subscribed_topics.find(_topic);
+    if (it != subscribed_topics.end()) {
+        options = it->second;
+        return true;
+    }
     return false;
+}
+
+uint16_t Client::GenPacketID(){
+    return packet_id_gen++;
 }

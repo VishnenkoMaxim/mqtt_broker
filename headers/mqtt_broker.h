@@ -109,7 +109,6 @@ private:
 
     int state;
     int control_sock;
-    pthread_t server_tid;
     int port;
     shared_ptr<logger> lg;
 
@@ -125,8 +124,8 @@ private:
     string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 
-    int NotifyClients(const MqttTopic& topic);
-    int NotifyClient(int fd, const MqttTopic& topic);
+    int NotifyClients(MqttTopic& topic);
+    int NotifyClient(int fd, MqttTopic& topic);
 
     unordered_multimap<string, MqttTopic> QoS_events;
     shared_mutex qos_mutex;
@@ -135,7 +134,7 @@ private:
     bool qos_thread_started{false};
 
 public:
-    friend void* ServerThread (void *arg);
+    friend void ServerThread ();
     friend void SenderThread(int id);
     friend void QoSThread();
 

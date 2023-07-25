@@ -17,6 +17,7 @@ private:
     uint8_t flags;
     uint16_t alive;
     time_t time_last_packet;
+    uint16_t packet_id_gen;
 
 public:
     explicit Client(string _ip);
@@ -29,7 +30,8 @@ public:
     void SetConnAlive(uint16_t _alive);
     void SetID(const string& _id);
     void AddSubscription(const string &_topic_name, uint8_t options);
-    bool MyTopic(const string &_topic);
+    bool MyTopic(const string &_topic, uint8_t& options);
+    uint16_t GenPacketID();
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;
