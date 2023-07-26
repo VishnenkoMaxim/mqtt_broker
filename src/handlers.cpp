@@ -75,20 +75,20 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     return mqtt_err::ok;
 }
 
-int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message){
-    lg->debug("HandleMqttPublish");
-    uint32_t offset = 0;
-
-    PublishVH p_vh(fh.QoS(), buf, offset);
-    lg->info("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
-    vh = std::move(p_vh);
-
-    //read Payload
-    lg->debug("message:{} retained:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset), fh.isRETAIN() ? true : false);
-    message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
-
-    return mqtt_err::ok;
-}
+//int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message){
+//    lg->debug("HandleMqttPublish");
+//    uint32_t offset = 0;
+//
+//    PublishVH p_vh(fh.QoS(), buf, offset);
+//    lg->info("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
+//    vh = std::move(p_vh);
+//
+//    //read Payload
+//    lg->debug("message:{} retained:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset), fh.isRETAIN() ? true : false);
+//    message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
+//
+//    return mqtt_err::ok;
+//}
 
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message){
     lg->debug("HandleMqttPublish");

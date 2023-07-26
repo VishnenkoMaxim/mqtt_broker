@@ -22,6 +22,7 @@
 #include "client.h"
 #include "command.h"
 #include "topic_storage.h"
+//#include "MqttPacketHandler.h"
 
 using namespace std;
 using namespace libconfig;
@@ -100,19 +101,44 @@ public:
 
 void SenderThread(int id);
 
-class Broker : public Commands, public CTopicStorage {
+class Broker;
+
+class IMqttPacketHandler{
+public:
+    virtual uint8_t GeyType() const = 0;
+    virtual int HandlePacket(const shared_ptr<uint8_t> &data, Broker *broker, int fd) = 0;
+    uint8_t type;
+};
+
+class MqttConnectPacketHandler : public IMqttPacketHandler{
+public:
+    MqttConnectPacketHandler();
+    uint8_t GeyType() const override;
+    int HandlePacket(const shared_ptr<uint8_t> &data, Broker *broker, int fd) override;
+};
+
+class MqttPacketHandler{
+public:
+    void AddHandler(IMqttPacketHandler *);
+    int HandlePacket(uint8_t packet_type, const shared_ptr<uint8_t> &data, Broker *broker, int fd);
+
+private:
+    list<IMqttPacketHandler *> handlers;
+};
+
+class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
 private:
     shared_mutex clients_mtx;
     unsigned int current_clients;
-    map<int, shared_ptr<Client>> clients;
     unordered_multimap<string, int> subscribe_data;
+    map<int, shared_ptr<Client>> clients;
 
     int state;
     int control_sock;
     int port;
     shared_ptr<logger> lg;
 
-    Broker() : Commands(), current_clients(0), state(0), control_sock(-1) {};
+    Broker();
 
     Broker(const Broker& root)          = delete;
     Broker& operator=(const Broker&)    = delete;
@@ -133,6 +159,9 @@ private:
     thread qos_thread;
     bool qos_thread_started{false};
 
+    //MqttPacketHandler packet_handlers;
+    friend MqttConnectPacketHandler;
+
 public:
     friend void ServerThread ();
     friend void SenderThread(int id);
@@ -148,7 +177,7 @@ public:
     int InitControlSocket();
 
     void AddQosEvent(const string& client_id, const MqttTopic& mqtt_message);
-    void DelQosEvent(const string& client_id, const uint16_t packet_id);
+    void DelQosEvent(const string& client_id, uint16_t packet_id);
     void DelClientQosEvents(const string& client_id);
 
     uint32_t GetClientCount() noexcept;
@@ -156,13 +185,13 @@ public:
 
     void    SetState(int _state) noexcept;
     void    SetPort(int _port) noexcept;
-    void    InitLogger(const string & _path, size_t  _size, size_t _max_files, size_t _level);
+    void    InitLogger(const string & _path, size_t  _size, size_t _max_files, int _level);
 
     void Start();
 };
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
-int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
+//int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message);
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics);
