@@ -11,8 +11,6 @@
 vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL", "PUBCOMP", "SUBSCRIBE", "SUBACK",
                                "UNSUBSCRIBE", "UNSUBACK", "PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"};
 
-//Publisher publisher;
-
 void SenderThread(int id){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start Sender Thread {}", id);
@@ -141,104 +139,96 @@ void ServerThread(){
                                     }
                                     broker.lg->flush();
 
-                                    broker.HandlePacket(f_head.GetType(), buf, &broker, fd);
-
-                                    switch (f_head.GetType()){
-//                                        case mqtt_pack_type::CONNECT: {
-//                                              int handle_stat = HandleMqttConnect(broker.clients[fd], buf, broker.lg);
-//                                              if (handle_stat != mqtt_err::ok){
-//                                                  broker.lg->error("handleConnect error");
-//                                                  fd_to_delete.push_back(fd);
-//                                                  break;
-//                                              }
-//
-//                                              uint32_t answer_size;
-//                                              MqttPropertyChain p_chain;
-//                                              p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier,
-//                                                                                            shared_ptr<MqttEntity>(new MqttStringEntity(broker.clients[fd]->GetID()))));
-//                                              VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success, std::move(p_chain)))};
-//                                              broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, answer_size)));
-//                                        }; break;
-
-                                        case mqtt_pack_type::PUBLISH:{
-                                            PublishVH vh;
-                                            auto pMessage = make_shared<MqttBinaryDataEntity>();
-
-                                            int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, pMessage);
-                                            if (handle_stat != mqtt_err::ok){
-                                                broker.lg->error("handle PUBLISH error");
-                                                fd_to_delete.push_back(fd);
-                                                break;
-                                            }
-                                            broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
-                                            broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), pMessage->Size()-2);
-                                            if (f_head.isRETAIN()){
-                                                broker.StoreTopicValue(f_head.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
-                                            }
-                                            if (f_head.QoS() == mqtt_QoS::QoS_1){
-                                                uint32_t answer_size;
-                                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
-                                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
-                                            }
-                                            auto topic = MqttTopic(f_head.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
-                                            broker.NotifyClients(topic);
-                                        }; break;
-
-                                        case mqtt_pack_type::SUBSCRIBE : {
-                                            SubscribeVH vh;
-                                            vector<uint8_t> reason_codes;
-                                            list<string> tpcs;
-
-                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh, reason_codes, tpcs);
-                                            if (handle_stat != mqtt_err::ok){
-                                                broker.lg->error("handle SUBSCRIBE error");
-                                                fd_to_delete.push_back(fd);
-                                                break;
-                                            }
-                                            broker.lg->info("Subscribe. id:{} property count:{}", vh.packet_id, vh.p_chain.Count());
-                                            for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it) {
-                                                broker.lg->debug("property id:{} val:{}", it->first,
-                                                                 it->second->GetUint());
-                                            }
-                                            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new SubackVH(vh.packet_id, MqttPropertyChain(), reason_codes))};
-                                            uint32_t answer_size;
-                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
-
-                                            for (const auto& it : tpcs){
-                                                bool found;
-                                                auto retain_topic = broker.GetTopic(it, found);
-
-                                                if(found){
-                                                    broker.lg->debug("Found retain topic:{}", it);
-                                                    retain_topic.SetQos(f_head.QoS());
-                                                    broker.NotifyClient(fd, retain_topic);
-                                                }
-                                            }
-                                        }; break;
-
-                                        case mqtt_pack_type::PUBACK : {
-                                            PubackVH p_vh;
-                                            HandleMqttPuback(buf, broker.lg, p_vh);
-                                            broker.lg->debug("puback: id:{} reason_code:{}", p_vh.packet_id, p_vh.reason_code);
-                                            auto pClient = broker.clients[vec_fds[i].fd];
-                                            broker.DelQosEvent(pClient->GetID(), p_vh.packet_id);
-                                        } break;
-
-                                        case mqtt_pack_type::DISCONNECT : {
-                                            broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
-                                            fd_to_delete.push_back(fd);
-                                        }; break;
-
-                                        case mqtt_pack_type::PINGREQ : {
-                                            broker.lg->info("{}: PINGREQ", broker.clients[fd]->GetIP());
-                                            uint32_t answer_size;
-                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PINGRESP << 4, answer_size)));
-                                        }; break;
-
-                                        default : {
+                                    int handle_stat = broker.HandlePacket(f_head, buf, &broker, fd);
+                                    if (handle_stat != mqtt_err::ok){
+                                        if (handle_stat == mqtt_err::handle_error){
                                             broker.lg->warn("Unsupported mqtt packet. Ignore it.");
+                                        } else {
+                                            if (handle_stat != mqtt_err::disconnect) broker.lg->error("handle error {}", handle_stat);
+                                            fd_to_delete.push_back(fd);
                                         }
                                     }
+
+//                                    switch (f_head.GetType()){
+//                                        case mqtt_pack_type::PUBLISH:{
+//                                            PublishVH vh;
+//                                            auto pMessage = make_shared<MqttBinaryDataEntity>();
+//
+//                                            int handle_stat = HandleMqttPublish(f_head, buf, broker.lg, vh, pMessage);
+//                                            if (handle_stat != mqtt_err::ok){
+//                                                broker.lg->error("handle PUBLISH error");
+//                                                fd_to_delete.push_back(fd);
+//                                                break;
+//                                            }
+//                                            broker.lg->info("{} topic name:'{}' packet_id:{} property_count:{}",broker.clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
+//                                            broker.lg->info("{} sent {} bytes",broker.clients[fd]->GetIP(), pMessage->Size()-2);
+//                                            if (f_head.isRETAIN()){
+//                                                broker.StoreTopicValue(f_head.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
+//                                            }
+//                                            if (f_head.QoS() == mqtt_QoS::QoS_1){
+//                                                uint32_t answer_size;
+//                                                VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
+//                                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
+//                                            }
+//                                            auto topic = MqttTopic(f_head.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
+//                                            broker.NotifyClients(topic);
+//                                        }; break;
+//
+//                                        case mqtt_pack_type::SUBSCRIBE : {
+//                                            SubscribeVH vh;
+//                                            vector<uint8_t> reason_codes;
+//                                            list<string> tpcs;
+//
+//                                            int handle_stat = HandleMqttSubscribe(broker.clients[fd], f_head, buf, broker.lg, vh, reason_codes, tpcs);
+//                                            if (handle_stat != mqtt_err::ok){
+//                                                broker.lg->error("handle SUBSCRIBE error");
+//                                                fd_to_delete.push_back(fd);
+//                                                break;
+//                                            }
+//                                            broker.lg->info("Subscribe. id:{} property count:{}", vh.packet_id, vh.p_chain.Count());
+//                                            for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it) {
+//                                                broker.lg->debug("property id:{} val:{}", it->first,
+//                                                                 it->second->GetUint());
+//                                            }
+//                                            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new SubackVH(vh.packet_id, MqttPropertyChain(), reason_codes))};
+//                                            uint32_t answer_size;
+//                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
+//
+//                                            for (const auto& it : tpcs){
+//                                                bool found;
+//                                                auto retain_topic = broker.GetTopic(it, found);
+//
+//                                                if(found){
+//                                                    broker.lg->debug("Found retain topic:{}", it);
+//                                                    retain_topic.SetQos(f_head.QoS());
+//                                                    broker.NotifyClient(fd, retain_topic);
+//                                                }
+//                                            }
+//                                        }; break;
+//
+//                                        case mqtt_pack_type::PUBACK : {
+//                                            PubackVH p_vh;
+//                                            HandleMqttPuback(buf, broker.lg, p_vh);
+//                                            broker.lg->debug("puback: id:{} reason_code:{}", p_vh.packet_id, p_vh.reason_code);
+//                                            auto pClient = broker.clients[vec_fds[i].fd];
+//                                            broker.DelQosEvent(pClient->GetID(), p_vh.packet_id);
+//                                        } break;
+//
+//                                        case mqtt_pack_type::DISCONNECT : {
+//                                            broker.lg->info("{}: Client has disconnected", broker.clients[fd]->GetIP());
+//                                            fd_to_delete.push_back(fd);
+//                                        }; break;
+//
+//                                        case mqtt_pack_type::PINGREQ : {
+//                                            broker.lg->info("{}: PINGREQ", broker.clients[fd]->GetIP());
+//                                            uint32_t answer_size;
+//                                            broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PINGRESP << 4, answer_size)));
+//                                        }; break;
+//
+//                                        default : {
+//                                            broker.lg->warn("Unsupported mqtt packet. Ignore it.");
+//                                        }
+//                                    }
                                 } else {
                                     broker.lg->error("Mqtt protocol error. Can't read FixedHeader. status:{}", ret);
                                     fd_to_delete.push_back(fd);
@@ -291,6 +281,11 @@ void ServerThread(){
 
 Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1) {
     AddHandler(new MqttConnectPacketHandler());
+    AddHandler(new MqttPublishPacketHandler());
+    AddHandler(new MqttSubscribePacketHandler());
+    AddHandler(new MqttPubAckPacketHandler());
+    AddHandler(new MqttDisconnectPacketHandler());
+    AddHandler(new MqttPingPacketHandler());
 }
 
 int Broker::AddClient(int sock, const string &_ip){
@@ -530,39 +525,4 @@ bool Broker::CheckTopicPresence(const string& client_id, const MqttTopic& topic)
         *it.first++;
     }
     return false;
-}
-
-MqttConnectPacketHandler::MqttConnectPacketHandler() {
-    type = mqtt_pack_type::CONNECT;
-}
-
-uint8_t MqttConnectPacketHandler::GeyType() const{
-    return type;
-}
-
-int MqttConnectPacketHandler::HandlePacket(const shared_ptr<uint8_t> &data, Broker *broker, const int fd){
-    int handle_stat = HandleMqttConnect(broker->clients[fd], data, broker->lg);
-    if (handle_stat != mqtt_err::ok){
-        broker->lg->error("handleConnect error");
-        return -1;
-    }
-
-    uint32_t answer_size;
-    MqttPropertyChain p_chain;
-    p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier,
-                                                  shared_ptr<MqttEntity>(new MqttStringEntity(broker->clients[fd]->GetID()))));
-    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success, std::move(p_chain)))};
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, answer_size)));
-    return mqtt_err::ok;
-}
-
-void MqttPacketHandler::AddHandler(IMqttPacketHandler *handler){
-    handlers.push_back(handler);
-}
-
-int MqttPacketHandler::HandlePacket(uint8_t packet_type, const shared_ptr<uint8_t> &data, Broker *broker, const int fd){
-    for(const auto& it : handlers){
-        if (packet_type == it->GeyType()) return it->HandlePacket(data, broker, fd);
-    }
-    return -1;
 }

@@ -22,7 +22,7 @@
 #include "client.h"
 #include "command.h"
 #include "topic_storage.h"
-//#include "MqttPacketHandler.h"
+#include "MqttPacketHandler.h"
 
 using namespace std;
 using namespace libconfig;
@@ -101,31 +101,6 @@ public:
 
 void SenderThread(int id);
 
-class Broker;
-
-class IMqttPacketHandler{
-public:
-    virtual uint8_t GeyType() const = 0;
-    virtual int HandlePacket(const shared_ptr<uint8_t> &data, Broker *broker, int fd) = 0;
-    uint8_t type;
-};
-
-class MqttConnectPacketHandler : public IMqttPacketHandler{
-public:
-    MqttConnectPacketHandler();
-    uint8_t GeyType() const override;
-    int HandlePacket(const shared_ptr<uint8_t> &data, Broker *broker, int fd) override;
-};
-
-class MqttPacketHandler{
-public:
-    void AddHandler(IMqttPacketHandler *);
-    int HandlePacket(uint8_t packet_type, const shared_ptr<uint8_t> &data, Broker *broker, int fd);
-
-private:
-    list<IMqttPacketHandler *> handlers;
-};
-
 class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
 private:
     shared_mutex clients_mtx;
@@ -159,8 +134,12 @@ private:
     thread qos_thread;
     bool qos_thread_started{false};
 
-    //MqttPacketHandler packet_handlers;
     friend MqttConnectPacketHandler;
+    friend MqttPublishPacketHandler;
+    friend MqttSubscribePacketHandler;
+    friend MqttPubAckPacketHandler;
+    friend MqttDisconnectPacketHandler;
+    friend MqttPingPacketHandler;
 
 public:
     friend void ServerThread ();
