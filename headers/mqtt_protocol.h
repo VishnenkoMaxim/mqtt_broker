@@ -82,6 +82,7 @@ namespace mqtt_protocol{
         granted_quos_1,
         granted_quos_2,
         disconnect_with_will = 0x04,
+        no_subscription_existed = 0x11,
         unspecified_error = 0x80,
         malformed_error,
         protocol_error,
@@ -512,7 +513,7 @@ namespace mqtt_protocol{
         vector<uint8_t> &reason_codes;
 
         SubackVH() = delete;
-        SubackVH(uint16_t _packet_id, const MqttPropertyChain& _p_chain, vector<uint8_t>& _reason_codes);
+        SubackVH(uint16_t _packet_id, MqttPropertyChain  _p_chain, vector<uint8_t>& _reason_codes);
 
         [[nodiscard]] uint32_t GetSize() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
@@ -535,6 +536,37 @@ namespace mqtt_protocol{
         void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
 
         ~PubackVH() override = default;
+    };
+
+    class UnsubscribeVH : public IVariableHeader{
+    public:
+        uint16_t packet_id{0};
+        MqttPropertyChain p_chain;
+
+        UnsubscribeVH() = default;
+        UnsubscribeVH(uint16_t _packet_id, MqttPropertyChain  _p_chain);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~UnsubscribeVH() override = default;
+    };
+
+    class UnsubAckVH: public IVariableHeader {
+    public:
+        uint16_t packet_id;
+        MqttPropertyChain p_chain;
+        vector<uint8_t> &reason_codes;
+
+        UnsubAckVH() = delete;
+        UnsubAckVH(uint16_t _packet_id, MqttPropertyChain _p_chain, vector<uint8_t>& _reason_codes);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~UnsubAckVH() override = default;
     };
 
     class VariableHeader final : public IVariableHeader{

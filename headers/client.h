@@ -32,6 +32,7 @@ public:
     void AddSubscription(const string &_topic_name, uint8_t options);
     bool MyTopic(const string &_topic, uint8_t& options);
     uint16_t GenPacketID();
+    uint8_t DelSubscription(const string &_topic_name);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;

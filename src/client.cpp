@@ -84,3 +84,7 @@ bool Client::MyTopic(const string &_topic, uint8_t& options){
 uint16_t Client::GenPacketID(){
     return packet_id_gen++;
 }
+
+uint8_t Client::DelSubscription(const string &_topic_name){
+    return subscribed_topics.erase(_topic_name);
+}

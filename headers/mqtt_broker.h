@@ -140,6 +140,7 @@ private:
     friend MqttPubAckPacketHandler;
     friend MqttDisconnectPacketHandler;
     friend MqttPingPacketHandler;
+    friend MqttUnsubscribePacketHandler;
 
 public:
     friend void ServerThread ();
@@ -170,11 +171,12 @@ public:
 };
 
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
-//int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, MqttBinaryDataEntity &message);
 int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message);
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics);
 int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PubackVH&  p_vh);
+int HandleMqttUnsubscribe(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, const FixedHeader &fh,
+                          shared_ptr<logger>& lg, UnsubscribeVH&  p_vh, list<string> &topics_to_unsubscribe);
 
 
 #endif //MQTT_BROKER_H

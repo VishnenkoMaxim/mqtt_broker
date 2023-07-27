@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "mqtt_protocol.h"
 
 using namespace mqtt_protocol;
@@ -209,7 +211,7 @@ void SubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 //----------------------SubackVH-------------------------------
-SubackVH::SubackVH(uint16_t _packet_id, const MqttPropertyChain &_p_chain, vector<uint8_t>& _reason_codes) : packet_id(_packet_id), p_chain(_p_chain), reason_codes(_reason_codes){}
+SubackVH::SubackVH(uint16_t _packet_id, MqttPropertyChain _p_chain, vector<uint8_t>& _reason_codes) : packet_id(_packet_id), p_chain(std::move(_p_chain)), reason_codes(_reason_codes){}
 
 uint32_t SubackVH::GetSize() const{
     return sizeof(packet_id) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize()) + reason_codes.size();
@@ -263,16 +265,70 @@ void PubackVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     packet_id = tmp;
     local_offset += sizeof(packet_id);
 
-//    memcpy(&reason_code, buf + local_offset, sizeof(reason_code));
-//    local_offset += sizeof(reason_code);
-//
-//    uint32_t property_len = 0;
-//    p_chain.Create(buf + local_offset, property_len);
-//    local_offset += property_len;
-
     offset += local_offset;
 }
 
+//-----------------------------UnsubscribeVH---------------------------------
+UnsubscribeVH::UnsubscribeVH(uint16_t _packet_id, MqttPropertyChain _p_chain) : packet_id(_packet_id), p_chain(std::move(_p_chain)){};
+
+[[nodiscard]] uint32_t UnsubscribeVH::GetSize() const{
+    return sizeof(packet_id) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize());
+}
+
+void UnsubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset) {
+    uint32_t local_offset = 0;
+    auto tmp = htons(packet_id);
+    memcpy(dst_buf, &tmp, sizeof(packet_id));
+    local_offset += sizeof(packet_id);
+
+    p_chain.Serialize(dst_buf + local_offset, local_offset);
+    offset += local_offset;
+}
+
+void UnsubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    p_chain.Clear();
+    uint32_t local_offset = 0;
+
+    memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
+    auto tmp = ntohs(packet_id);
+    packet_id = tmp;
+    local_offset += sizeof(packet_id);
+    offset += local_offset;
+
+    uint32_t property_len = 0;
+    p_chain.Create(buf + local_offset, property_len);
+    offset += property_len;
+}
+
+//---------------------------------UnsubAckVH--------------------------------------------------
+UnsubAckVH::UnsubAckVH(uint16_t _packet_id, MqttPropertyChain _p_chain, vector<uint8_t>& _reason_codes) : packet_id(_packet_id), p_chain(std::move(_p_chain)), reason_codes(_reason_codes){}
+
+[[nodiscard]] uint32_t UnsubAckVH::GetSize() const {
+    return sizeof(packet_id) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize()) + reason_codes.size();
+}
+
+void UnsubAckVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+    auto tmp = htons(packet_id);
+    memcpy(dst_buf, &tmp, sizeof(packet_id));
+    local_offset += sizeof(packet_id);
+
+    p_chain.Serialize(dst_buf + local_offset, local_offset);
+
+    for(const auto& reason_code : reason_codes){
+        memcpy(dst_buf + local_offset, &reason_code, sizeof(uint8_t));
+        local_offset++;
+    }
+    offset += local_offset;
+}
+
+void UnsubAckVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    //todo
+    (void)buf;
+    (void) offset;
+}
+
+//---------------------------------VariableHeader-----------------------------------------------
 uint32_t VariableHeader::GetSize() const {
     return v_header->GetSize();
 }

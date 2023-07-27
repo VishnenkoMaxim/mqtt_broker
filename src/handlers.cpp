@@ -122,3 +122,20 @@ int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, Pub
     p_vh.ReadFromBuf(buf.get(), offset);
     return mqtt_err::ok;
 }
+
+int HandleMqttUnsubscribe(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, const FixedHeader &fh,
+                          shared_ptr<logger>& lg, UnsubscribeVH&  p_vh, list<string> &topics_to_unsubscribe){
+    lg->debug("HandleMqttUnsubscribe");
+    uint32_t offset = 0;
+    p_vh.ReadFromBuf(buf.get(), offset);
+    while(offset < fh.remaining_len){
+        uint16_t name_len = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(name_len);
+        string topic_name((char *) buf.get() + offset, name_len);
+        offset += name_len;
+        topics_to_unsubscribe.push_back(topic_name);
+        lg->info("{}: Unsubscribe topic:'{}'", pClient->GetIP(), topic_name);
+    }
+    lg->flush();
+    return mqtt_err::ok;
+}

@@ -121,6 +121,28 @@ int MqttPingPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_he
     return mqtt_err::ok;
 }
 
+//unsubscribe
+MqttUnsubscribePacketHandler::MqttUnsubscribePacketHandler() : IMqttPacketHandler(mqtt_pack_type::UNSUBSCRIBE){}
+
+int MqttUnsubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
+    auto pClient = broker->clients[fd];
+    broker->lg->info("{}: UNSUBSCRIBE", pClient->GetIP());
+    UnsubscribeVH u_vh;
+    list<string> topics_to_unsubscribe;
+    HandleMqttUnsubscribe(pClient, data, f_header, broker->lg, u_vh, topics_to_unsubscribe);
+
+    vector<uint8_t> reason_codes;
+    for(const auto& it : topics_to_unsubscribe){
+        if (pClient->DelSubscription(it)) reason_codes.push_back(mqtt_reason_code::success);
+        else reason_codes.push_back(mqtt_reason_code::no_subscription_existed);
+    }
+
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new UnsubAckVH(u_vh.packet_id, MqttPropertyChain(), reason_codes))};
+    uint32_t answer_size;
+    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(UNSUBACK << 4, answer_vh, answer_size)));
+    return mqtt_err::ok;
+}
+
 //Handler
 void MqttPacketHandler::AddHandler(IMqttPacketHandler *handler){
     handlers.push_back(handler);
