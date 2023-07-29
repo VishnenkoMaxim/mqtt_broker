@@ -158,7 +158,7 @@ void ServerThread(){
                                 }
                             }
                         } else {
-                            broker.lg->debug("client closed socket fd:{}", vec_fds[i].fd);
+                            broker.lg->debug("[{}] Client closed socket", broker.clients[vec_fds[i].fd]->GetID());
                             fd_to_delete.push_back(vec_fds[i].fd);
                             auto pClient = broker.clients[vec_fds[i].fd];
                             if (pClient->isWillFlag()){
@@ -171,7 +171,7 @@ void ServerThread(){
                         if (fd != broker.control_sock){
                             auto pClient = broker.clients[fd];
                             if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive() + 5){
-                                broker.lg->warn("{} ({}) time out, disconnect {} {}", pClient->GetIP(), fd, current_time, pClient->GetPacketLastTime());
+                                broker.lg->warn("[{}] time out, disconnect", pClient->GetIP());
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout, MqttPropertyChain()))};
                                 uint32_t answer_size;
                                 broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)));
@@ -339,7 +339,6 @@ int Broker::ReadFixedHeader(const int fd, FixedHeader &f_hed){
         else                           return broker_err::mqtt_err;
     }
     lg->debug("Fixed header type:0x{0:X} len:{1}", f_hed.first, f_hed.remaining_len);
-    lg->debug("DUP:{} QoS:{} RETAIN:{}", f_hed.isDUP(), f_hed.QoS(), f_hed.isRETAIN());
     return broker_err::ok;
 }
 

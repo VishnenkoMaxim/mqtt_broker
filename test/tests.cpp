@@ -543,8 +543,9 @@ TEST(VariableHeaders, Test_2){
 }
 
 TEST(MqttTopic, Test_1){
-    MqttBinaryDataEntity data(4, (uint8_t *) "data");
-    MqttTopic topic(1, "test", data.Size(), data.GetData());
+    auto p = make_shared<MqttBinaryDataEntity>(MqttBinaryDataEntity(4, (uint8_t *) "data"));
+    MqttTopic topic(0, 1, "test", p);
+
     MqttTopic topic_2(topic);
 
     EXPECT_EQ(topic == "test", true);

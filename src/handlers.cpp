@@ -91,7 +91,7 @@ int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, sha
 }
 
 int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
-                        SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<string>& subscribe_topics){
+                        SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<pair<string, uint8_t>>& subscribe_topics){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
@@ -106,10 +106,11 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
         offset += name_len;
         memcpy(&options, buf.get() + offset, sizeof(options));
         offset += sizeof(options);
+
         pClient->AddSubscription(topic_name, options);
-        _reason_codes.push_back(1);
-        subscribe_topics.push_back(topic_name);
-        lg->info("{}: subscribed to topic:'{}'", pClient->GetIP(), topic_name);
+        _reason_codes.push_back(mqtt_QoS::QoS_1);
+        subscribe_topics.emplace_back(topic_name, options);
+        lg->info("[{}] subscribed to topic:'{}' QoS:{}", pClient->GetIP(), topic_name, options);
     }
     lg->flush();
     return mqtt_err::ok;
