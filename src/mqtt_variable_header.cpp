@@ -300,6 +300,44 @@ void UnsubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     offset += property_len;
 }
 
+//---------------------------------PubrecVH---------------------------------------------------
+PubrecVH::PubrecVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain _p_chain) : packet_id(_packet_id), reason_code(_reason_code), p_chain(std::move(_p_chain)){}
+
+[[nodiscard]] uint32_t PubrecVH::GetSize() const{
+    return sizeof(packet_id) + sizeof(reason_code) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize());
+}
+
+void PubrecVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+    auto tmp = htons(packet_id);
+    memcpy(dst_buf, &tmp, sizeof(packet_id));
+    local_offset += sizeof(packet_id);
+
+    memcpy(dst_buf + local_offset, &reason_code, sizeof(reason_code));
+    local_offset += sizeof(reason_code);
+
+    p_chain.Serialize(dst_buf + local_offset, local_offset);
+    offset += local_offset;
+}
+
+void PubrecVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    p_chain.Clear();
+    uint32_t local_offset = 0;
+
+    memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
+    auto tmp = ntohs(packet_id);
+    packet_id = tmp;
+    local_offset += sizeof(packet_id);
+    offset += local_offset;
+    uint32_t property_len = 0;
+
+    memcpy(&reason_code, buf + local_offset, sizeof(reason_code));
+    local_offset += sizeof(reason_code);
+
+    p_chain.Create(buf + local_offset, property_len);
+    offset += property_len;
+}
+
 //---------------------------------UnsubAckVH--------------------------------------------------
 UnsubAckVH::UnsubAckVH(uint16_t _packet_id, MqttPropertyChain _p_chain, vector<uint8_t>& _reason_codes) : packet_id(_packet_id), p_chain(std::move(_p_chain)), reason_codes(_reason_codes){}
 

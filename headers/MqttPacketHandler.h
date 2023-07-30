@@ -12,8 +12,8 @@ class Broker;
 
 class IMqttPacketHandler{
 public:
-    IMqttPacketHandler(uint8_t _type);
-    uint8_t GetType() const;
+    explicit IMqttPacketHandler(uint8_t _type);
+    [[nodiscard]] uint8_t GetType() const;
     virtual int HandlePacket(const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd) = 0;
 protected:
     uint8_t type;
