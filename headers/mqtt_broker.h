@@ -129,8 +129,8 @@ private:
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    unordered_multimap<string, MqttTopic> QoS_events;
-    //unordered_map<string, queue<MqttTopic>> QoS_events;
+    //unordered_multimap<string, MqttTopic> QoS_events;
+    unordered_map<string, queue<MqttTopic>> QoS_events;
 
     shared_mutex qos_mutex;
     bool CheckTopicPresence(const string& client_id, const MqttTopic& topic);

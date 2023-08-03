@@ -47,6 +47,7 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
     }
     broker->lg->info("[{}] topic name:'{}' packet_id:{} property_count:{}",broker->clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
     if (f_header.isRETAIN()){
+        broker->lg->info("[{}] Store topic:{}",broker->clients[fd]->GetIP(), vh.topic_name.GetString());
         broker->StoreTopicValue(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
     }
     if (f_header.QoS() == mqtt_QoS::QoS_1){
@@ -83,11 +84,12 @@ int MqttSubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const 
     broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
 
     for (const auto& it : tpcs){
+        broker->lg->info("[{}] serach for topic name:'{}' among retained", broker->clients[fd]->GetIP(), it.first);
         bool found;
         auto retain_topic = broker->GetTopic(it.first, found);
 
         if(found){
-            broker->lg->debug("[{}] Found retain topic:{}",  broker->clients[fd]->GetIP(), it.first);
+            broker->lg->debug("[{}] Found retain topic:{}",  broker->clients[fd]->GetIP(), it.first); broker->lg->flush();
             retain_topic.SetQos(it.second);
             broker->NotifyClient(fd, retain_topic);
         }
@@ -101,16 +103,16 @@ MqttPubAckPacketHandler::MqttPubAckPacketHandler() : IMqttPacketHandler(mqtt_pac
 int MqttPubAckPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     PubackVH p_vh;
     HandleMqttPuback(data, broker->lg, p_vh);
-    broker->lg->debug("[{}] puback: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id, p_vh.reason_code);
+    broker->lg->debug("[{}] puback: id:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id);
     auto pClient = broker->clients[fd];
     broker->DelQosEvent(pClient->GetID(), p_vh.packet_id);
 
     if (broker->CheckIfMoreMessages(pClient->GetID())){
-        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP());
+        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP()); broker->lg->flush();
         bool found;
         auto topic = broker->GetKeptTopic(pClient->GetID(), found);
         if (found){
-            broker->lg->debug("[{}] found kept topic: {} QoS:{}", broker->clients[fd]->GetIP(), topic.GetName(), topic.GetQoS());
+            broker->lg->debug("[{}] found kept topic: {} QoS:{}", broker->clients[fd]->GetIP(), topic.GetName(), topic.GetQoS()); broker->lg->flush();
 
             broker->lg->debug("NotifyClient(): {} {}", topic.GetID(), topic.GetQoS());
             VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};

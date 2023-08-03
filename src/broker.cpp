@@ -31,6 +31,7 @@ void QoSThread(){
     map<int, string> clients_id_map;
 
     while(true){
+        //broker.lg->debug("QoSThread execute"); broker.lg->flush();
         if (!broker.QoS_events.empty()){
             clients_id_map.clear();
             lock.lock();
@@ -42,15 +43,14 @@ void QoSThread(){
             lock_2.unlock();
 
             for(const auto& it : clients_id_map){
+
                 auto it_cli = broker.QoS_events.find(it.second);
-                //while(it_cli != broker.QoS_events.end() && it_cli->first == it.second){
-                if (it_cli != broker.QoS_events.end() && it_cli->first == it.second){
-                    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(it_cli->second.GetName()), it_cli->second.GetID(), MqttPropertyChain()))};
+                if (it_cli != broker.QoS_events.end() && !it_cli->second.empty()){
+                    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(it_cli->second.front().GetName()), it_cli->second.front().GetID(), MqttPropertyChain()))};
                     uint32_t answer_size;
-                    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | it_cli->second.GetQoS() << 1, answer_vh, it_cli->second.GetPtr(), answer_size);
-                    broker.lg->debug("Add topic to send :{} value:{}", it_cli->second.GetName(), it_cli->second.GetString());
+                    shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | it_cli->second.front().GetQoS() << 1, answer_vh, it_cli->second.front().GetPtr(), answer_size);
+                    broker.lg->debug("QoSThread, Add topic to send :{} value:{}", it_cli->second.front().GetName(), it_cli->second.front().GetString());
                     broker.AddCommand(it.first, make_tuple(answer_size, data));
-                //    it_cli++;
                 }
             }
             lock.unlock();
@@ -86,7 +86,7 @@ void ServerThread(){
                 struct pollfd tmp_fd_control{broker.control_sock, POLLIN, 0};
                 vec_fds.push_back(tmp_fd_control);
                 broker.SetState(broker_states::wait);
-                broker.lg->flush();
+                broker.lg->info("Current fds: {}", vec_fds.size()); broker.lg->flush();
             }; break;
 
             case broker_states::wait : {
@@ -123,13 +123,13 @@ void ServerThread(){
                                     close(data_socket);
                                 } else broker.lg->error("control socket accept error");
                             } else {
-                                broker.lg->debug("Have data");
+                                broker.lg->debug("Have data"); broker.lg->flush();
                                 int fd = vec_fds[i].fd;
                                 broker.clients[fd]->SetPacketLastTime(current_time);
                                 FixedHeader f_head;
                                 int ret = broker.ReadFixedHeader(fd, f_head);
                                 if (ret == broker_err::ok){
-                                    broker.lg->debug("action:{}", broker.GetControlPacketTypeName(f_head.GetType()));
+                                    broker.lg->debug("action:{}", broker.GetControlPacketTypeName(f_head.GetType())); broker.lg->flush();
                                     shared_ptr<uint8_t> buf(new uint8_t[f_head.remaining_len], default_delete<uint8_t[]>());
                                     ret = ReadData(fd, buf.get(), f_head.remaining_len, 0);
                                     broker.lg->debug("remaining_len:{}", f_head.remaining_len);
@@ -148,7 +148,8 @@ void ServerThread(){
                                             if (handle_stat != mqtt_err::disconnect) broker.lg->error("handle error {}", handle_stat);
                                             fd_to_delete.push_back(fd);
                                         }
-                                    }
+                                    } else broker.lg->debug("handle_stat OK");
+                                    broker.lg->flush();
                                 } else {
                                     broker.lg->error("Mqtt protocol error. Can't read FixedHeader. status:{}", ret);
                                     fd_to_delete.push_back(fd);
@@ -370,18 +371,6 @@ int Broker::NotifyClients(MqttTopic& topic){
             AddCommand(it.first, make_tuple(answer_size, data));
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
                 AddQosEvent(it.second->GetID(), topic);
-
-                topic.SetPacketID(it.second->GenPacketID());
-                AddQosEvent(it.second->GetID(), topic);
-
-                topic.SetPacketID(it.second->GenPacketID());
-                AddQosEvent(it.second->GetID(), topic);
-
-                topic.SetPacketID(it.second->GenPacketID());
-                AddQosEvent(it.second->GetID(), topic);
-
-                topic.SetPacketID(it.second->GenPacketID());
-                AddQosEvent(it.second->GetID(), topic);
             }
         }
     }
@@ -415,32 +404,28 @@ void Broker::AddQosEvent(const string& client_id, const MqttTopic& mqtt_message)
     if (erase_old_values_in_queue) {
         auto it = QoS_events.find(client_id);
         while (it != QoS_events.end() && it->first == client_id) {
-            if (it->second.GetName() == mqtt_message.GetName()) {
+            if (it->second.front().GetName() == mqtt_message.GetName()) {
                 QoS_events.erase(it);
                 lg->debug("Found old value, DelQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id,
-                          it->second.GetQoS(), it->second.GetName(), it->second.GetID());
+                          it->second.front().GetQoS(), it->second.front().GetName(), it->second.front().GetID());
                 break;
             }
             it++;
         }
     }
-    QoS_events.insert(make_pair(client_id, mqtt_message));
+    //QoS_events.insert(make_pair(client_id, mqtt_message));
+    if (QoS_events.find(client_id) == QoS_events.end()){
+        QoS_events.insert(make_pair(client_id, queue<MqttTopic>{}));
+    }
+    QoS_events[client_id].push(mqtt_message);
+
     lg->debug("AddQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, mqtt_message.GetQoS(), mqtt_message.GetName(), mqtt_message.GetID());
     lg->debug("total count:{}", QoS_events.size());
 }
 
-void Broker::DelQosEvent(const string& client_id, const uint16_t packet_id){
+void Broker::DelQosEvent(const string& client_id, [[maybe_unused]]  uint16_t packet_id){
     unique_lock<shared_mutex> lock(qos_mutex);
-    auto it = QoS_events.find(client_id);
-    while(it != QoS_events.end() && it->first == client_id){
-        if (it->second.GetID() == packet_id) {
-            QoS_events.erase(it);
-            lg->debug("DelQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, it->second.GetQoS(), it->second.GetName(), it->second.GetID());
-            lg->debug("total count:{}", QoS_events.size());
-            return;
-        }
-        it++;
-    }
+    QoS_events[client_id].pop();
 }
 
 void Broker::DelClientQosEvents(const string& client_id){
@@ -453,7 +438,7 @@ bool Broker::CheckTopicPresence(const string& client_id, const MqttTopic& topic)
 
     auto it = QoS_events.equal_range(client_id);
     while ( it.first != it.second ){
-        if (it.first->second.GetName() == topic.GetName()) return true;
+        if (it.first->second.front().GetName() == topic.GetName()) return true;
         *it.first++;
     }
     return false;
@@ -465,7 +450,7 @@ void Broker::SetEraseOldValues(const bool val) noexcept {
 
 bool Broker::CheckIfMoreMessages(const string& client_id){
     auto it = QoS_events.find(client_id);
-    if (it != QoS_events.end()) return true;
+    if (it->second.size()) return true;
 
     return false;
 }
@@ -476,7 +461,7 @@ MqttTopic Broker::GetKeptTopic(const string& client_id, bool &found){
 
     if (it != QoS_events.end()){
         found = true;
-        return it->second;
+        return it->second.front();
     }
 
     return MqttTopic{0, 0, string{""}, nullptr};
