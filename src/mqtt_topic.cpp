@@ -11,7 +11,8 @@ bool MqttTopic::operator==(const string &str){
 }
 
 bool MqttTopic::operator <(const MqttTopic& _topic) const{
-    return name < _topic.name;
+    //return name < _topic.name;
+    return id < _topic.id;
 }
 
 uint32_t MqttTopic::GetSize(){
@@ -52,4 +53,8 @@ void MqttTopic::SetPacketID(uint16_t new_id){
 
 void MqttTopic::SetQos(uint8_t _qos){
     qos = _qos;
+}
+
+void MqttTopic::SetName(const string& _name){
+    name = _name;
 }

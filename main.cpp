@@ -35,6 +35,7 @@ int main() {
     SetLogLevel(lg, cfg_data.level);
     broker.SetPort(cfg_data.port);
     broker.InitLogger(cfg_data.log_file_path, cfg_data.log_max_size, cfg_data.log_max_files, cfg_data.level);
+    broker.SetEraseOldValues(false);
 
     int sock_fd, newsock_fd;
     struct sockaddr_in serv_addr, cli_addr;

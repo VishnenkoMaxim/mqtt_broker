@@ -104,6 +104,22 @@ int MqttPubAckPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     broker->lg->debug("[{}] puback: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id, p_vh.reason_code);
     auto pClient = broker->clients[fd];
     broker->DelQosEvent(pClient->GetID(), p_vh.packet_id);
+
+    if (broker->CheckIfMoreMessages(pClient->GetID())){
+        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP());
+        bool found;
+        auto topic = broker->GetKeptTopic(pClient->GetID(), found);
+        if (found){
+            broker->lg->debug("[{}] found kept topic: {} QoS:{}", broker->clients[fd]->GetIP(), topic.GetName(), topic.GetQoS());
+
+            broker->lg->debug("NotifyClient(): {} {}", topic.GetID(), topic.GetQoS());
+            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
+            uint32_t answer_size;
+            shared_ptr<uint8_t> data_tmp = CreateMqttPacket(PUBLISH << 4 | topic.GetQoS() << 1, answer_vh, topic.GetPtr(), answer_size);
+            broker->lg->debug("Add topic to send :{} packet_id:{}", topic.GetName(), topic.GetID());
+            broker->AddCommand(fd, make_tuple(answer_size, data_tmp));
+        }
+    }
     return mqtt_err::ok;
 }
 

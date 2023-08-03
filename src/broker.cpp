@@ -43,13 +43,14 @@ void QoSThread(){
 
             for(const auto& it : clients_id_map){
                 auto it_cli = broker.QoS_events.find(it.second);
-                while(it_cli != broker.QoS_events.end() && it_cli->first == it.second){
+                //while(it_cli != broker.QoS_events.end() && it_cli->first == it.second){
+                if (it_cli != broker.QoS_events.end() && it_cli->first == it.second){
                     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(it_cli->second.GetName()), it_cli->second.GetID(), MqttPropertyChain()))};
                     uint32_t answer_size;
                     shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | it_cli->second.GetQoS() << 1, answer_vh, it_cli->second.GetPtr(), answer_size);
                     broker.lg->debug("Add topic to send :{} value:{}", it_cli->second.GetName(), it_cli->second.GetString());
                     broker.AddCommand(it.first, make_tuple(answer_size, data));
-                    it_cli++;
+                //    it_cli++;
                 }
             }
             lock.unlock();
@@ -369,6 +370,18 @@ int Broker::NotifyClients(MqttTopic& topic){
             AddCommand(it.first, make_tuple(answer_size, data));
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
                 AddQosEvent(it.second->GetID(), topic);
+
+                topic.SetPacketID(it.second->GenPacketID());
+                AddQosEvent(it.second->GetID(), topic);
+
+                topic.SetPacketID(it.second->GenPacketID());
+                AddQosEvent(it.second->GetID(), topic);
+
+                topic.SetPacketID(it.second->GenPacketID());
+                AddQosEvent(it.second->GetID(), topic);
+
+                topic.SetPacketID(it.second->GenPacketID());
+                AddQosEvent(it.second->GetID(), topic);
             }
         }
     }
@@ -379,9 +392,6 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     lg->debug("NotifyClient()"); lg->flush();
     auto pClient = clients[fd];
 
-    //uint8_t options;
-    //pClient->MyTopic(topic.GetName(), options);
-    //topic.SetQos(options & 0x03);
     if (topic.GetQoS() == mqtt_QoS::QoS_0) topic.SetPacketID(0);
     else topic.SetPacketID(pClient->GenPacketID());
 
@@ -399,17 +409,20 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     return mqtt_err::ok;
 }
 
-void Broker::AddQosEvent(const string& client_id, const MqttTopic& mqtt_message){
+void Broker::AddQosEvent(const string& client_id, const MqttTopic& mqtt_message) {
     unique_lock<shared_mutex> lock(qos_mutex);
 
-    auto it = QoS_events.find(client_id);
-    while(it != QoS_events.end() && it->first == client_id){
-        if (it->second.GetName() == mqtt_message.GetName()) {
-            QoS_events.erase(it);
-            lg->debug("Found old value, DelQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, it->second.GetQoS(), it->second.GetName(), it->second.GetID());
-            break;
+    if (erase_old_values_in_queue) {
+        auto it = QoS_events.find(client_id);
+        while (it != QoS_events.end() && it->first == client_id) {
+            if (it->second.GetName() == mqtt_message.GetName()) {
+                QoS_events.erase(it);
+                lg->debug("Found old value, DelQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id,
+                          it->second.GetQoS(), it->second.GetName(), it->second.GetID());
+                break;
+            }
+            it++;
         }
-        it++;
     }
     QoS_events.insert(make_pair(client_id, mqtt_message));
     lg->debug("AddQosEvent for client_id:{} qos:{} topic:{} packet_id:{}", client_id, mqtt_message.GetQoS(), mqtt_message.GetName(), mqtt_message.GetID());
@@ -439,9 +452,34 @@ bool Broker::CheckTopicPresence(const string& client_id, const MqttTopic& topic)
     shared_lock<shared_mutex> lock(qos_mutex);
 
     auto it = QoS_events.equal_range(client_id);
-    while ( it.first != it.second ) {
+    while ( it.first != it.second ){
         if (it.first->second.GetName() == topic.GetName()) return true;
         *it.first++;
     }
     return false;
 }
+
+void Broker::SetEraseOldValues(const bool val) noexcept {
+    erase_old_values_in_queue = val;
+}
+
+bool Broker::CheckIfMoreMessages(const string& client_id){
+    auto it = QoS_events.find(client_id);
+    if (it != QoS_events.end()) return true;
+
+    return false;
+}
+
+MqttTopic Broker::GetKeptTopic(const string& client_id, bool &found){
+    found = false;
+    auto it = QoS_events.find(client_id);
+
+    if (it != QoS_events.end()){
+        found = true;
+        return it->second;
+    }
+
+    return MqttTopic{0, 0, string{""}, nullptr};
+}
+
+

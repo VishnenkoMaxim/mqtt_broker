@@ -32,7 +32,7 @@ void Commands::Execute(){
 }
 
 void Commands::Notify(){
-    cond.notify_all();
+    if (commands.size() > 0) cond.notify_all();
 }
 
 int FdWriteCommand::count = 0;
