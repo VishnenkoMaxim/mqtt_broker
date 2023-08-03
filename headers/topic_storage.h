@@ -22,5 +22,4 @@ private:
     set<MqttTopic> topics;
 };
 
-
 #endif //MQTT_BROKER_TOPIC_STORAGE_H

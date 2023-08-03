@@ -569,21 +569,15 @@ namespace mqtt_protocol{
         ~UnsubAckVH() override = default;
     };
 
-    class PubrecVH: public IVariableHeader {
+    class TypicalVH: public PubackVH {
     public:
-        uint16_t packet_id;
-        uint8_t reason_code;
-        MqttPropertyChain p_chain;
+        TypicalVH() = delete;
+        TypicalVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain _p_chain);
 
-        PubrecVH() = delete;
-        PubrecVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain _p_chain);
-
-        [[nodiscard]] uint32_t GetSize() const override;
-        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
-        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
-
-        ~PubrecVH() override = default;
+        ~TypicalVH() override = default;
     };
+
+
 
     class VariableHeader final : public IVariableHeader{
     private:
