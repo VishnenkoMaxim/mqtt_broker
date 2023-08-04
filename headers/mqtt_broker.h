@@ -129,17 +129,15 @@ private:
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    //unordered_multimap<string, MqttTopic> QoS_events;
-    unordered_map<string, queue<MqttTopic>> QoS_events;
+    //unordered_map<string, queue<MqttTopic>> QoS_events;
+    unordered_map<string, queue<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>> postponed_events;
 
     shared_mutex qos_mutex;
-    bool CheckTopicPresence(const string& client_id, const MqttTopic& topic);
     thread qos_thread;
     bool qos_thread_started{false};
     bool erase_old_values_in_queue{false};
     bool CheckIfMoreMessages(const string& client_id);
-    MqttTopic GetKeptTopic(const string& client_id, bool &found);
-
+    pair<uint32_t, shared_ptr<uint8_t>> GetPacket(const string& client_id, bool &found);
 
     friend MqttConnectPacketHandler;
     friend MqttPublishPacketHandler;
@@ -163,10 +161,9 @@ public:
     void DelClient(int sock);
     int InitControlSocket();
 
-    void AddQosEvent(const string& client_id, const MqttTopic& mqtt_message);
+    void AddQosEvent(const string& client_id, const tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>& mqtt_message);
     void DelQosEvent(const string& client_id, uint16_t packet_id);
-    void DelClientQosEvents(const string& client_id);
-    void SetEraseOldValues(const bool val) noexcept;
+    void SetEraseOldValues(bool val) noexcept;
 
     uint32_t GetClientCount() noexcept;
     int     GetState() noexcept;
