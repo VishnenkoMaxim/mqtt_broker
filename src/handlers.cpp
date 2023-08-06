@@ -108,7 +108,7 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
         offset += sizeof(options);
 
         pClient->AddSubscription(topic_name, options);
-        _reason_codes.push_back(mqtt_QoS::QoS_1);
+        _reason_codes.push_back(mqtt_QoS::QoS_2);
         subscribe_topics.emplace_back(topic_name, options);
         lg->info("[{}] subscribed to topic:'{}' QoS:{}", pClient->GetIP(), topic_name, options);
     }

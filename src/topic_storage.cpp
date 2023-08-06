@@ -51,3 +51,44 @@ void CTopicStorage::DeleteTopicValue(const MqttTopic& _topic){
     unique_lock lock(mtx);
     topics.erase(_topic);
 }
+
+
+//qos topics
+void CTopicStorage::AddQoSTopic(const string& client_id, const MqttTopic& topic){
+    unique_lock lock(qos_mtx);
+    qos_2_topics.insert(make_pair(client_id, topic));
+}
+
+MqttTopic CTopicStorage::GetQoSTopic(const string& client_id, const uint16_t packet_id, bool& found){
+    shared_lock lock(qos_mtx);
+    found = false;
+    auto it = qos_2_topics.find(client_id);
+
+    while (it != qos_2_topics.end() && it->first == client_id){
+        if (it->second.GetID() == packet_id){
+            found = true;
+            return it->second;
+        }
+        it++;
+    }
+    return MqttTopic{0, 0, string{""}, nullptr};
+
+}
+
+void CTopicStorage::DelQoSTopic(const string& client_id, const uint16_t packet_id){
+    unique_lock lock(qos_mtx);
+    auto it = qos_2_topics.find(client_id);
+
+    while (it != qos_2_topics.end() && it->first == client_id){
+        if (it->second.GetID() == packet_id){
+            qos_2_topics.erase(it);
+            return;
+        }
+        it++;
+    }
+}
+
+uint32_t CTopicStorage::GetQoSTopicCount(){
+    return qos_2_topics.size();
+}
+

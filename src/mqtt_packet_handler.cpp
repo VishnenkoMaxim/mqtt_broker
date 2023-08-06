@@ -22,7 +22,7 @@ int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
     uint32_t answer_size;
     MqttPropertyChain p_chain;
     p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(broker->clients[fd]->GetID()))));
-    //p_chain.AddProperty(make_shared<MqttProperty>(maximum_qos, shared_ptr<MqttEntity>(new MqttByteEntity(mqtt_QoS::QoS_1))));
+    //p_chain.AddProperty(make_shared<MqttProperty>(maximum_qos, shared_ptr<MqttEntity>(new MqttByteEntity(mqtt_QoS::QoS_1)))); // there is no need when use QoS 2
     p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
     p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
     p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
@@ -61,7 +61,10 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
     }
 
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
-    broker->NotifyClients(topic);
+
+    if (f_header.QoS() != mqtt_QoS::QoS_2) broker->NotifyClients(topic);
+    else broker->AddQoSTopic(broker->clients[fd]->GetID(), topic);
+
     return mqtt_err::ok;
 }
 
@@ -177,9 +180,51 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
     broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBCOMP << 4, answer_vh, answer_size)));
 
+    bool found;
+    auto topic = broker->GetQoSTopic(broker->clients[fd]->GetID(), t_vh.packet_id, found);
+    if (found){
+        broker->lg->debug("[{}] Have found packet_id",  broker->clients[fd]->GetIP());
+        broker->NotifyClients(topic);
+        broker->DelQoSTopic(broker->clients[fd]->GetID(), t_vh.packet_id);
+        broker->lg->debug("[{}] Delete from storage. topic count:{}",  broker->clients[fd]->GetIP(), broker->GetQoSTopicCount());
+    } else {
+        broker->lg->error("[{}] Did not find packet_id:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id);
+    }
+
     broker->lg->flush();
     return mqtt_err::ok;
 }
+
+//pubrec
+MqttPubRecPacketHandler::MqttPubRecPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBREC) {};
+
+int MqttPubRecPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
+    TypicalVH t_vh;
+    HandleMqttPuback(data, broker->lg, t_vh);
+    broker->lg->debug("[{}] pubrec: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id, t_vh.reason_code);
+    auto pClient = broker->clients[fd];
+    broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
+
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
+    uint32_t answer_size;
+    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBREL << 4 | 1 << 1, answer_vh, answer_size)));
+
+    broker->lg->flush();
+    return mqtt_err::ok;
+}
+
+//pubcomp
+MqttPubCompPacketHandler::MqttPubCompPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBCOMP) {};
+
+int MqttPubCompPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
+    TypicalVH t_vh;
+    HandleMqttPuback(data, broker->lg, t_vh);
+    broker->lg->debug("[{}] pubcomp: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id, t_vh.reason_code);
+
+    broker->lg->flush();
+    return mqtt_err::ok;
+}
+
 
 //Handler
 void MqttPacketHandler::AddHandler(IMqttPacketHandler *handler){

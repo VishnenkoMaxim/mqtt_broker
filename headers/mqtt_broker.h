@@ -147,6 +147,8 @@ private:
     friend MqttPingPacketHandler;
     friend MqttUnsubscribePacketHandler;
     friend MqttPubRelPacketHandler;
+    friend MqttPubRecPacketHandler;
+    friend MqttPubCompPacketHandler;
 
 public:
     friend void ServerThread ();
