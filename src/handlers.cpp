@@ -140,3 +140,10 @@ int HandleMqttUnsubscribe(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>
     lg->flush();
     return mqtt_err::ok;
 }
+
+int HandleMqttPubrel(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, TypicalVH&  t_vh){
+    lg->debug("HandleMqttPubrel");
+    uint32_t offset = 0;
+    t_vh.ReadFromBuf(buf.get(), offset);
+    return mqtt_err::ok;
+}

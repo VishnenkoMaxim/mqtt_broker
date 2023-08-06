@@ -146,6 +146,7 @@ private:
     friend MqttDisconnectPacketHandler;
     friend MqttPingPacketHandler;
     friend MqttUnsubscribePacketHandler;
+    friend MqttPubRelPacketHandler;
 
 public:
     friend void ServerThread ();
@@ -182,6 +183,7 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
 int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PubackVH&  p_vh);
 int HandleMqttUnsubscribe(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, const FixedHeader &fh,
                           shared_ptr<logger>& lg, UnsubscribeVH&  p_vh, list<string> &topics_to_unsubscribe);
+int HandleMqttPubrel(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, TypicalVH&  t_vh);
 
 
 #endif //MQTT_BROKER_H

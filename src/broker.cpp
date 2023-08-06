@@ -207,6 +207,7 @@ Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1) {
     AddHandler(new MqttDisconnectPacketHandler());
     AddHandler(new MqttPingPacketHandler());
     AddHandler(new MqttUnsubscribePacketHandler());
+    AddHandler(new MqttPubRelPacketHandler());
 }
 
 int Broker::AddClient(int sock, const string &_ip){

@@ -61,6 +61,12 @@ public:
     int HandlePacket(const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd) override;
 };
 
+class MqttPubRelPacketHandler : public IMqttPacketHandler{
+public:
+    MqttPubRelPacketHandler();
+    int HandlePacket(const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd) override;
+};
+
 class MqttPacketHandler{
 public:
     void AddHandler(IMqttPacketHandler *);
@@ -69,5 +75,7 @@ public:
 private:
     list<IMqttPacketHandler *> handlers;
 };
+
+
 
 #endif //MQTTPACKETHANDLER_H

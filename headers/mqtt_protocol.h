@@ -571,13 +571,11 @@ namespace mqtt_protocol{
 
     class TypicalVH: public PubackVH {
     public:
-        TypicalVH() = delete;
+        TypicalVH() = default;
         TypicalVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain _p_chain);
 
         ~TypicalVH() override = default;
     };
-
-
 
     class VariableHeader final : public IVariableHeader{
     private:
