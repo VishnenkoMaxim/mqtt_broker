@@ -40,7 +40,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
 
     if (!log_cfg.lookupValue("size", size)) {
         std::cerr << "Size arg error. Set default" << std::endl;
-        size = 10*_1MB;
+        size = 10*_1MB_;
     }
 
     if (!log_cfg.lookupValue("max_files", max_file)) {

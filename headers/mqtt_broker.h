@@ -36,7 +36,7 @@ using namespace mqtt_protocol;
 #define DEFAULT_PORT        1883
 #define CONTROL_SOCKET_NAME "/tmp/9Lq7BNBnBycd6nxy.socket"
 
-#define _1MB                1048576
+#define _1MB_                1048576
 
 namespace cfg_err{
     enum cfg_err_enum : int {
@@ -74,7 +74,7 @@ public:
     int port;
     int level;
 
-    ServerCfgData() : log_file_path(DEFAULT_LOG_FILE), log_max_size(10*_1MB), log_max_files(5), port(DEFAULT_PORT), level(spdlog::level::info) {}
+    ServerCfgData() : log_file_path(DEFAULT_LOG_FILE), log_max_size(10*_1MB_), log_max_files(5), port(DEFAULT_PORT), level(spdlog::level::info) {}
 
     ServerCfgData(const string &_path, const size_t &_log_max_size, const size_t &log_max_files, const int _port, const int _log_level)
                     : log_file_path(_path), log_max_size(_log_max_size), log_max_files(log_max_files), port(_port), level(_log_level) {
@@ -100,7 +100,7 @@ public:
     }
 };
 
-void SenderThread(int id);
+[[noreturn]] void SenderThread(int id);
 
 class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
 private:
@@ -111,15 +111,10 @@ private:
 
     int state;
     int control_sock;
-    int port;
+    int port{};
     shared_ptr<logger> lg;
 
     Broker();
-
-    Broker(const Broker& root)          = delete;
-    Broker& operator=(const Broker&)    = delete;
-    Broker(Broker&& root)               = delete;
-    Broker& operator=(Broker&&)         = delete;
 
     int SendCommand(const char *buf, int buf_size);
     int ReadFixedHeader(int fd, FixedHeader &f_hed);
@@ -129,8 +124,8 @@ private:
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    //unordered_map<string, queue<MqttTopic>> QoS_events;
     unordered_map<string, queue<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>> postponed_events;
+    //unordered_map<string, list<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>> postponed_events;
 
     shared_mutex qos_mutex;
     thread qos_thread;
@@ -151,7 +146,13 @@ private:
     friend MqttPubCompPacketHandler;
 
 public:
-    friend void ServerThread ();
+    Broker(const Broker& root)          = delete;
+    Broker& operator=(const Broker&)    = delete;
+    Broker(Broker&& root)               = delete;
+    Broker& operator=(Broker&&)         = delete;
+
+    friend void ServerThread();
+
     friend void SenderThread(int id);
     friend void QoSThread();
 
@@ -169,7 +170,7 @@ public:
     void SetEraseOldValues(bool val) noexcept;
 
     uint32_t GetClientCount() noexcept;
-    int     GetState() noexcept;
+    int     GetState() const noexcept;
 
     void    SetState(int _state) noexcept;
     void    SetPort(int _port) noexcept;

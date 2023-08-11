@@ -57,7 +57,11 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
     } else if (f_header.QoS() == mqtt_QoS::QoS_2){
         uint32_t answer_size;
         VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
-        broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBREC << 4, answer_vh, answer_size)));
+        auto data_packet = CreateMqttPacket(PUBREC << 4, answer_vh, answer_size);
+
+        //broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBREC << 4, answer_vh, answer_size)));
+        broker->AddCommand(fd, make_tuple(answer_size, data_packet));
+        broker->AddQosEvent(broker->clients[fd]->GetID(), make_tuple(answer_size, data_packet, vh.packet_id));
     }
 
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
@@ -111,16 +115,16 @@ MqttPubAckPacketHandler::MqttPubAckPacketHandler() : IMqttPacketHandler(mqtt_pac
 int MqttPubAckPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     PubackVH p_vh;
     HandleMqttPuback(data, broker->lg, p_vh);
-    broker->lg->debug("[{}] puback: id:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id);
+    broker->lg->debug("[{}] puback: id:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id); broker->lg->flush();
     auto pClient = broker->clients[fd];
     broker->DelQosEvent(pClient->GetID(), p_vh.packet_id);
 
     if (broker->CheckIfMoreMessages(pClient->GetID())){
-        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP());
+        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP()); broker->lg->flush();
         bool found;
         auto data_mes = broker->GetPacket(pClient->GetID(), found);
         if (found){
-            broker->lg->debug("[{}] found kept message", broker->clients[fd]->GetIP());
+            broker->lg->debug("[{}] found kept message", broker->clients[fd]->GetIP()); broker->lg->flush();
             broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
         }
     }
@@ -173,22 +177,25 @@ MqttPubRelPacketHandler::MqttPubRelPacketHandler() : IMqttPacketHandler(mqtt_pac
 
 int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     TypicalVH t_vh;
+    auto pClient = broker->clients[fd];
+
     HandleMqttPubrel(data, broker->lg, t_vh);
-    broker->lg->debug("[{}] pubrel: id:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id);
+    broker->lg->debug("[{}] pubrel: id:{}", pClient->GetIP(), t_vh.packet_id);
 
     uint32_t answer_size;
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
     broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBCOMP << 4, answer_vh, answer_size)));
+    broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
 
     bool found;
-    auto topic = broker->GetQoSTopic(broker->clients[fd]->GetID(), t_vh.packet_id, found);
+    auto topic = broker->GetQoSTopic(pClient->GetID(), t_vh.packet_id, found);
     if (found){
-        broker->lg->debug("[{}] Have found packet_id",  broker->clients[fd]->GetIP());
+        broker->lg->debug("[{}] Have found packet_id", pClient->GetIP());
         broker->NotifyClients(topic);
-        broker->DelQoSTopic(broker->clients[fd]->GetID(), t_vh.packet_id);
-        broker->lg->debug("[{}] Delete from storage. topic count:{}",  broker->clients[fd]->GetIP(), broker->GetQoSTopicCount());
+        broker->DelQoSTopic(pClient->GetID(), t_vh.packet_id);
+        broker->lg->debug("[{}] Delete from storage. topic count:{}",  pClient->GetIP(), broker->GetQoSTopicCount());
     } else {
-        broker->lg->error("[{}] Did not find packet_id:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id);
+        broker->lg->error("[{}] Did not find packet_id:{}", pClient->GetIP(), t_vh.packet_id);
     }
 
     broker->lg->flush();

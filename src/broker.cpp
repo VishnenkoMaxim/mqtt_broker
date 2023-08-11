@@ -11,7 +11,7 @@
 vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL", "PUBCOMP", "SUBSCRIBE", "SUBACK",
                                "UNSUBSCRIBE", "UNSUBACK", "PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"};
 
-void SenderThread(int id){
+[[noreturn]] void SenderThread(int id){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start Sender Thread {}", id);
 
@@ -196,10 +196,9 @@ void ServerThread(){
             }; break;
         }
     }
-    return;
 }
 
-Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1) {
+Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1), port(1883) {
     AddHandler(new MqttConnectPacketHandler());
     AddHandler(new MqttPublishPacketHandler());
     AddHandler(new MqttSubscribePacketHandler());
@@ -239,7 +238,7 @@ uint32_t Broker::GetClientCount() noexcept {
     return clients.size();
 }
 
-int Broker::GetState() noexcept {
+int Broker::GetState() const noexcept {
     return state;
 }
 
@@ -409,13 +408,17 @@ void Broker::AddQosEvent(const string& client_id, const tuple<uint32_t, shared_p
     postponed_events[client_id].push(mqtt_message);
 
     lg->debug("Add posteponed event for client_id:{} packet_id:{}", client_id, get<2>(mqtt_message));
-    lg->debug("total count:{}", postponed_events.size());
+    lg->debug("total count:{}", postponed_events[client_id].size());
 }
 
 void Broker::DelQosEvent(const string& client_id, uint16_t packet_id){
     lg->debug("delete post message client_id:{} packet_id:{}", client_id, packet_id);
     unique_lock<shared_mutex> lock(qos_mutex);
-    postponed_events[client_id].pop();
+
+    auto it = postponed_events.find(client_id);
+    if (it != postponed_events.end() && !it->second.empty()) {
+        it->second.pop();
+    }
 }
 
 void Broker::SetEraseOldValues(const bool val) noexcept {
@@ -424,7 +427,7 @@ void Broker::SetEraseOldValues(const bool val) noexcept {
 
 bool Broker::CheckIfMoreMessages(const string& client_id){
     auto it = postponed_events.find(client_id);
-    if (it->second.size()) return true;
+    if (!it->second.empty()) return true;
 
     return false;
 }
