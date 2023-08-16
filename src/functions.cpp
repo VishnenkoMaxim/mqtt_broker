@@ -5,13 +5,15 @@
 #include "mqtt_broker.h"
 
 using namespace std;
+using namespace spdlog;
+using namespace libconfig;
 
 template <typename T>
 void PrintType [[maybe_unused]](T) {
     cout << __PRETTY_FUNCTION__ << endl;
 }
 
-ServerCfgData ReadConfig(const char *cfg_path, int &err){
+ServerCfgData ReadConfig(const char *cfg_path, cfg_err &err){
     Config cfg;
 
     try {
@@ -31,6 +33,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
     int max_file(0);
     int log_level;
     int port;
+    string control_socket_path;
 
     if (!log_cfg.lookupValue("path", path)) {
         std::cerr << "path error" << std::endl;
@@ -58,8 +61,13 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
         log_level = level::level_enum::info;
     }
 
+    if (!broker_cfg.lookupValue("control_socket", control_socket_path)){
+        std::cerr << "control socket path error. Set default" << std::endl;
+        control_socket_path = CONTROL_SOCKET_NAME;
+    }
+
     err = cfg_err::ok;
-    return (ServerCfgData{path, size, max_file, port, log_level});
+    return (ServerCfgData{path, size, max_file, port, log_level, control_socket_path});
 }
 
 void SetLogLevel(const shared_ptr<logger>& lg, int _level) noexcept {

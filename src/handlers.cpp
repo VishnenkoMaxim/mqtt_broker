@@ -1,5 +1,8 @@
 #include "mqtt_broker.h"
 
+using namespace spdlog;
+using namespace std;
+
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg){
     ConnectVH con_vh;
     uint32_t offset = 0;

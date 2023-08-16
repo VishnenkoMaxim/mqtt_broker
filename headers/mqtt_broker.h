@@ -25,12 +25,6 @@
 #include "topic_storage.h"
 #include "MqttPacketHandler.h"
 
-using namespace std;
-using namespace libconfig;
-using namespace spdlog;
-using namespace temp_funcs;
-using namespace mqtt_protocol;
-
 #define DEFAULT_CFG_FILE    "/home/cfg/mqtt_broker.cfg"
 #define DEFAULT_LOG_FILE    "/home/logs/mqtt_broker.log"
 #define DEFAULT_PORT        1883
@@ -38,16 +32,14 @@ using namespace mqtt_protocol;
 
 #define _1MB_                1048576
 
-namespace cfg_err{
-    enum cfg_err_enum : int {
-        ok,
-        bad_file,
-        bad_arg
-    };
-}
+enum class cfg_err {
+    ok,
+    bad_file,
+    bad_arg
+};
 
 namespace broker_err{
-    enum broker_err_enum : int {
+    enum broker_err : int {
         ok,
         add_error,
         sock_create_err,
@@ -58,81 +50,64 @@ namespace broker_err{
     };
 }
 
-namespace broker_states{
-    enum broker_states_enum : int {
-        init,
-        started,
-        wait
-    };
-}
+enum broker_states : int {
+    init,
+    started,
+    wait
+};
 
 class ServerCfgData{
 public:
-    string log_file_path;
+    std::string log_file_path;
     size_t log_max_size;
     size_t log_max_files;
     int port;
     int level;
+    std::string control_socket_path;
 
-    ServerCfgData() : log_file_path(DEFAULT_LOG_FILE), log_max_size(10*_1MB_), log_max_files(5), port(DEFAULT_PORT), level(spdlog::level::info) {}
+    ServerCfgData() : log_file_path(DEFAULT_LOG_FILE), log_max_size(10*_1MB_), log_max_files(5), port(DEFAULT_PORT), level(spdlog::level::info), control_socket_path(CONTROL_SOCKET_NAME) {}
 
-    ServerCfgData(const string &_path, const size_t &_log_max_size, const size_t &log_max_files, const int _port, const int _log_level)
-                    : log_file_path(_path), log_max_size(_log_max_size), log_max_files(log_max_files), port(_port), level(_log_level) {
+    ServerCfgData(const std::string &_path, const size_t &_log_max_size, const size_t &log_max_files, const int _port, const int _log_level, const std::string& _control_socket_path)
+                    : log_file_path(_path), log_max_size(_log_max_size), log_max_files(log_max_files), port(_port), level(_log_level), control_socket_path(_control_socket_path) {
 
     }
 };
 
-ServerCfgData ReadConfig(const char *path, int &err);
-
-class Publisher{
-private:
-    list<MqttTopic> topics_to_pub;
-
-public:
-    void Add(const MqttTopic &topic){
-        topics_to_pub.push_back(topic);
-    }
-
-    void ShowTopics(){
-        for(const auto& it : topics_to_pub){
-            cout << "topic: " << it.GetString() << endl;
-        }
-    }
-};
+ServerCfgData ReadConfig(const char *path, cfg_err &err);
 
 [[noreturn]] void SenderThread(int id);
 
 class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
 private:
-    shared_mutex clients_mtx;
+    std::shared_mutex clients_mtx;
     unsigned int current_clients;
-    unordered_multimap<string, int> subscribe_data;
-    map<int, shared_ptr<Client>> clients;
+    std::unordered_multimap<std::string, int> subscribe_data;
+    std::map<int, std::shared_ptr<Client>> clients;
 
     int state;
     int control_sock;
     int port{};
-    shared_ptr<logger> lg;
+    std::shared_ptr<spdlog::logger> lg;
 
     Broker();
 
     int SendCommand(const char *buf, int buf_size);
     int ReadFixedHeader(int fd, FixedHeader &f_hed);
-    string GetControlPacketTypeName(uint8_t _packet);
+    std::string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    unordered_map<string, queue<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>> postponed_events;
-    //unordered_map<string, list<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>> postponed_events;
+    //unordered_map<std::string, queue<tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
+    std::unordered_map<std::string, std::list<std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
 
-    shared_mutex qos_mutex;
-    thread qos_thread;
+    std::shared_mutex qos_mutex;
+    std::thread qos_thread;
     bool qos_thread_started{false};
     bool erase_old_values_in_queue{false};
-    bool CheckIfMoreMessages(const string& client_id);
-    pair<uint32_t, shared_ptr<uint8_t>> GetPacket(const string& client_id, bool &found);
+    bool CheckIfMoreMessages(const std::string& client_id);
+    std::pair<uint32_t, std::shared_ptr<uint8_t>> GetPacket(const std::string& client_id, bool &found);
 
     friend MqttConnectPacketHandler;
     friend MqttPublishPacketHandler;
@@ -151,22 +126,21 @@ public:
     Broker(Broker&& root)               = delete;
     Broker& operator=(Broker&&)         = delete;
 
-    friend void ServerThread();
-
-    friend void SenderThread(int id);
-    friend void QoSThread();
+    static void ServerThread();
+    [[noreturn]] static void SenderThread(int id);
+    static void QoSThread();
 
     static Broker& GetInstance(){
         static Broker instance;
         return instance;
     }
 
-    int AddClient(int sock, const string &_ip);
+    int AddClient(int sock, const std::string &_ip);
     void DelClient(int sock);
-    int InitControlSocket();
+    int InitControlSocket(const std::string& sock_path);
 
-    void AddQosEvent(const string& client_id, const tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>& mqtt_message);
-    void DelQosEvent(const string& client_id, uint16_t packet_id);
+    void AddQosEvent(const std::string& client_id, const std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>& mqtt_message);
+    void DelQosEvent(const std::string& client_id, uint16_t packet_id);
     void SetEraseOldValues(bool val) noexcept;
 
     uint32_t GetClientCount() noexcept;
@@ -174,19 +148,23 @@ public:
 
     void    SetState(int _state) noexcept;
     void    SetPort(int _port) noexcept;
-    void    InitLogger(const string & _path, size_t  _size, size_t _max_files, int _level);
+    void    InitLogger(const std::string & _path, size_t  _size, size_t _max_files, int _level);
 
     void Start();
 };
 
-int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg);
-int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message);
-int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg,
-                        SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<pair<string, uint8_t>>& subscribe_topics);
-int HandleMqttPuback(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PubackVH&  p_vh);
-int HandleMqttUnsubscribe(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, const FixedHeader &fh,
-                          shared_ptr<logger>& lg, UnsubscribeVH&  p_vh, list<string> &topics_to_unsubscribe);
-int HandleMqttPubrel(const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, TypicalVH&  t_vh);
+int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg);
 
+int HandleMqttPublish(const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PublishVH &vh, std::shared_ptr<MqttBinaryDataEntity> &message);
+
+int HandleMqttSubscribe(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg,
+                        SubscribeVH &vh, std::vector<uint8_t> &_reason_codes, std::list<std::pair<std::string, uint8_t>>& subscribe_topics);
+
+int HandleMqttPuback(const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PubackVH&  p_vh);
+
+int HandleMqttUnsubscribe(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, const FixedHeader &fh,
+                          std::shared_ptr<spdlog::logger>& lg, UnsubscribeVH&  p_vh, std::list<std::string> &topics_to_unsubscribe);
+
+int HandleMqttPubrel(const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, TypicalVH&  t_vh);
 
 #endif //MQTT_BROKER_H

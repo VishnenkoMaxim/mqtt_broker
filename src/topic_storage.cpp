@@ -1,5 +1,7 @@
 #include "topic_storage.h"
 
+using namespace std;
+
 void CTopicStorage::StoreTopicValue(const uint8_t qos, const uint16_t id, const string& topic_name, const shared_ptr<MqttBinaryDataEntity>& data){
     unique_lock lock(mtx);
     MqttTopic topic(qos, id, topic_name, data);

@@ -1,5 +1,7 @@
 #include "client.h"
 
+using namespace std;
+
 Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0), packet_id_gen(1) {
     time_t _cur_time;
     time(&_cur_time);

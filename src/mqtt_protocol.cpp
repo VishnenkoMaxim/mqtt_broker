@@ -4,6 +4,7 @@
 
 using namespace mqtt_protocol;
 using namespace temp_funcs;
+using namespace std;
 
 [[nodiscard]] uint8_t mqtt_protocol::ReadVariableInt(const int fd, int &value){
     uint8_t single_byte;

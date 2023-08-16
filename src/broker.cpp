@@ -8,10 +8,13 @@
 
 #include "mqtt_broker.h"
 
+using namespace std;
+using namespace mqtt_pack_type;
+
 vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL", "PUBCOMP", "SUBSCRIBE", "SUBACK",
                                "UNSUBSCRIBE", "UNSUBACK", "PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"};
 
-[[noreturn]] void SenderThread(int id){
+[[noreturn]] void Broker::SenderThread(int id){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start Sender Thread {}", id);
 
@@ -21,7 +24,7 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
     }
 }
 
-void QoSThread(){
+void Broker::QoSThread(){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start QoSThread{}");
 
@@ -45,11 +48,13 @@ void QoSThread(){
             for(const auto& it : clients_id_map){
                 auto it_cli = broker.postponed_events.find(it.second);
                 if (it_cli != broker.postponed_events.end() && !it_cli->second.empty()){
-                    uint32_t len;
-                    shared_ptr<uint8_t> data;
+                    for (const auto& it_messages : it_cli->second) {
+                        uint32_t len;
+                        shared_ptr<uint8_t> data;
 
-                    tie(len, data, std::ignore) = it_cli->second.front();
-                    broker.AddCommand(it.first, make_tuple(len, data));
+                        tie(len, data, std::ignore) = it_messages;
+                        broker.AddCommand(it.first, make_tuple(len, data));
+                    }
                 }
             }
             lock.unlock();
@@ -60,7 +65,7 @@ void QoSThread(){
     }
 }
 
-void ServerThread(){
+void Broker::ServerThread(){
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start ServerThread");
     vector<struct pollfd> vec_fds;
@@ -269,9 +274,9 @@ void Broker::SetState(int _state) noexcept {
     state = _state;
 }
 
-int Broker::InitControlSocket() {
+int Broker::InitControlSocket(const string& sock_path) {
     struct sockaddr_un serv_addr;
-    unlink(CONTROL_SOCKET_NAME);
+    unlink(sock_path.c_str());
     control_sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (control_sock < 0) {
         lg->error("Error opening control socket: {}", strerror(errno));
@@ -279,7 +284,7 @@ int Broker::InitControlSocket() {
     }
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sun_family  = AF_UNIX;
-    strncpy(serv_addr.sun_path, CONTROL_SOCKET_NAME, sizeof(serv_addr.sun_path) - 1);
+    strncpy(serv_addr.sun_path, sock_path.c_str(), sizeof(serv_addr.sun_path) - 1);
     if (bind(control_sock, (const struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0){
         lg->error("Error binding control socket: {}", strerror(errno));
         return broker_err::sock_bind_err;
@@ -403,21 +408,27 @@ void Broker::AddQosEvent(const string& client_id, const tuple<uint32_t, shared_p
     unique_lock<shared_mutex> lock(qos_mutex);
 
     if (postponed_events.find(client_id) == postponed_events.end()){
-        postponed_events.insert(make_pair(client_id, queue<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>{}));
+        postponed_events.insert(make_pair(client_id, list<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>{}));
     }
-    postponed_events[client_id].push(mqtt_message);
+    postponed_events[client_id].push_back(mqtt_message);
 
     lg->debug("Add posteponed event for client_id:{} packet_id:{}", client_id, get<2>(mqtt_message));
     lg->debug("total count:{}", postponed_events[client_id].size());
 }
 
 void Broker::DelQosEvent(const string& client_id, uint16_t packet_id){
-    lg->debug("delete post message client_id:{} packet_id:{}", client_id, packet_id);
     unique_lock<shared_mutex> lock(qos_mutex);
 
     auto it = postponed_events.find(client_id);
     if (it != postponed_events.end() && !it->second.empty()) {
-        it->second.pop();
+        for (auto & it_local : it->second){
+            if (get<2>(it_local) == packet_id){
+                it->second.remove(it_local);
+                lg->debug("DelQosEvent client_id:{} packet_id:{}", client_id, packet_id);
+                lg->debug("postponed packets:{}", it->second.size());
+                return;
+            }
+        }
     }
 }
 

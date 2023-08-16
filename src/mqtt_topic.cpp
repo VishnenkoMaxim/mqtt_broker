@@ -1,6 +1,7 @@
 #include "mqtt_protocol.h"
 
 using namespace mqtt_protocol;
+using namespace std;
 
 MqttTopic::MqttTopic(uint8_t _qos, uint16_t _id, const string &_name, const shared_ptr<MqttBinaryDataEntity> &_data) : qos(_qos), id(_id), name(_name), data(_data){
     if (qos > 2) qos = 0;

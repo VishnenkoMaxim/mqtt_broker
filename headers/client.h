@@ -2,16 +2,14 @@
 #define MQTT_BROKER_CLIENT_H
 
 #include <utility>
-
 #include "mqtt_protocol.h"
-using namespace mqtt_protocol;
 
 class Client{
 private:
-    string ip{};
-    MqttStringEntity        client_id;
-    queue<MqttTopic>        topics_to_send;
-    unordered_map<string, uint8_t>   subscribed_topics;
+    std::string ip{};
+    mqtt_protocol::MqttStringEntity        client_id;
+    std::queue<mqtt_protocol::MqttTopic>        topics_to_send;
+    std::unordered_map<std::string, uint8_t>   subscribed_topics;
 
     [[maybe_unused]] uint8_t state;
     uint8_t flags;
@@ -20,19 +18,19 @@ private:
     uint16_t packet_id_gen;
 
 public:
-    explicit Client(string _ip);
+    explicit Client(std::string _ip);
 
-    MqttPropertyChain conn_properties;
-    MqttPropertyChain will_properties;
-    MqttTopic will_topic;
+    mqtt_protocol::MqttPropertyChain conn_properties;
+    mqtt_protocol::MqttPropertyChain will_properties;
+    mqtt_protocol::MqttTopic will_topic;
 
     void SetConnFlags(uint8_t _flags);
     void SetConnAlive(uint16_t _alive);
-    void SetID(const string& _id);
-    void AddSubscription(const string &_topic_name, uint8_t options);
-    bool MyTopic(const string &_topic, uint8_t& options);
+    void SetID(const std::string& _id);
+    void AddSubscription(const std::string &_topic_name, uint8_t options);
+    bool MyTopic(const std::string &_topic, uint8_t& options);
     uint16_t GenPacketID();
-    uint8_t DelSubscription(const string &_topic_name);
+    uint8_t DelSubscription(const std::string &_topic_name);
 
     bool isUserNameFlag() const;
     bool isPwdFlag() const;
@@ -41,12 +39,12 @@ public:
     bool isWillFlag() const;
     bool isCleanFlag() const;
 
-    string GetID() const;
-    string& GetIP();
+    std::string GetID() const;
+    std::string& GetIP();
     time_t GetPacketLastTime() const;
     uint16_t GetAlive() const;
-    unordered_map<string, uint8_t>::const_iterator CFind(const string &_topic_name);
-    unordered_map<string, uint8_t>::const_iterator CEnd();
+    std::unordered_map<std::string, uint8_t>::const_iterator CFind(const std::string &_topic_name);
+    std::unordered_map<std::string, uint8_t>::const_iterator CEnd();
 
     void SetPacketLastTime(time_t _cur_time);
 

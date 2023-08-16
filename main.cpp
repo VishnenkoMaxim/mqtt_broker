@@ -11,15 +11,17 @@
 #include <arpa/inet.h>
 #include <memory>
 
-using namespace std;
-
 #include "version.h"
 #include "mqtt_broker.h"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 
+using namespace std;
+using namespace spdlog;
+using namespace libconfig;
+
 int main() {
-    int err = 0;
+    cfg_err err;
     shared_ptr<logger> lg;
     Broker& broker = Broker::GetInstance();
     ServerCfgData cfg_data = ReadConfig(DEFAULT_CFG_FILE, err);
@@ -70,7 +72,7 @@ int main() {
     fds.events = POLLIN;
     int ret;
 
-    broker.InitControlSocket();
+    broker.InitControlSocket(cfg_data.control_socket_path);
 
     while(true){
         lg->info("Waiting for a client..."); lg->flush();

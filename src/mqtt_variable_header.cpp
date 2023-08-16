@@ -3,6 +3,7 @@
 #include "mqtt_protocol.h"
 
 using namespace mqtt_protocol;
+using namespace std;
 
 ConnectVH::ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0){
     memset(name, 0, 4);
@@ -99,7 +100,7 @@ void DisconnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     offset += size;
 }
 
-PublishVH::PublishVH(bool is_packet_id_present, const shared_ptr<uint8_t>& buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t)), packet_id(0){
+PublishVH::PublishVH(bool is_packet_id_present, const std::shared_ptr<uint8_t>& buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t)), packet_id(0){
     offset = topic_name.Size();
     if (is_packet_id_present){
         packet_id = ConvertToHost2Bytes(buf.get() + offset);
@@ -154,7 +155,7 @@ void PublishVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 //--------------------------SubscribeVH-------------------------------------------
-SubscribeVH::SubscribeVH(const shared_ptr<uint8_t>& buf, uint32_t &offset){
+SubscribeVH::SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset){
     offset = 0;
     packet_id = ConvertToHost2Bytes(buf.get());
     offset += sizeof(packet_id);

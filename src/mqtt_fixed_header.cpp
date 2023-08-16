@@ -1,6 +1,7 @@
 #include "mqtt_protocol.h"
 
 using namespace mqtt_protocol;
+using namespace mqtt_pack_type;
 
 FixedHeader::FixedHeader() noexcept{
     first = 0;

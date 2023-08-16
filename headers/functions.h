@@ -9,8 +9,6 @@
 #include <list>
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 namespace temp_funcs {
     template<int V, int num>
     struct mult {
@@ -31,11 +29,11 @@ int ReadData(int fd, uint8_t* data, int size, unsigned int timeout);
 uint16_t ConvertToHost2Bytes(const uint8_t* buf);
 uint32_t ConvertToHost4Bytes(const uint8_t* buf);
 
-void SetLogLevel(const shared_ptr<spdlog::logger>& lg, int _level) noexcept;
+void SetLogLevel(const std::shared_ptr<spdlog::logger>& lg, int _level) noexcept;
 
 template <class T>
 struct PoolData{
-    shared_ptr<T> pool;
+    std::shared_ptr<T> pool;
     int32_t used_elements;
 
     PoolData() = delete;
@@ -48,7 +46,7 @@ struct PoolData{
 template <class T, int num>
 class PoolAllocator{
 private:
-    list<PoolData<T>> pools;
+    std::list<PoolData<T>> pools;
     size_t pool_size;
     T* cur_pointer = nullptr;
 
@@ -67,7 +65,7 @@ public:
     template <class U> PoolAllocator (const PoolAllocator<U, num>&) noexcept {}
 
     T* allocate (size_t n){
-        if (n > pool_size) throw bad_alloc();
+        if (n > pool_size) throw std::bad_alloc();
         if ((pools.size() == 0) || (pools.back().used_elements + n > num)) AllocateNewPool();
 
         pools.back().used_elements += n;
@@ -106,6 +104,6 @@ public:
 std::string GenRandom(const uint8_t len);
 
 template <class Type>
-ostream& operator << (ostream &os, const vector<Type> &_vec);
+std::ostream& operator << (std::ostream &os, const std::vector<Type> &_vec);
 
 #endif //MQTT_BROKER_FUNCTIONS_H
