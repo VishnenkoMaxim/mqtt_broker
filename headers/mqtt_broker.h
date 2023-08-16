@@ -1,5 +1,4 @@
-#ifndef MQTT_BROKER_H
-#define MQTT_BROKER_H
+#pragma once
 
 #include <libconfig.h++>
 #include <string>
@@ -38,17 +37,17 @@ enum class cfg_err {
     bad_arg
 };
 
-namespace broker_err{
-    enum broker_err : int {
-        ok,
-        add_error,
-        sock_create_err,
-        sock_bind_err,
-        sock_listen_err,
-        read_err,
-        mqtt_err
-    };
-}
+enum class broker_err {
+    ok,
+    add_error,
+    sock_create_err,
+    sock_bind_err,
+    sock_listen_err,
+    read_err,
+    mqtt_err,
+    connect_err,
+    write_err
+};
 
 enum broker_states : int {
     init,
@@ -74,7 +73,6 @@ public:
 };
 
 ServerCfgData ReadConfig(const char *path, cfg_err &err);
-
 [[noreturn]] void SenderThread(int id);
 
 class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
@@ -86,20 +84,20 @@ private:
 
     int state;
     int control_sock;
+    std::string control_sock_path;
     int port{};
     std::shared_ptr<spdlog::logger> lg;
 
     Broker();
 
-    int SendCommand(const char *buf, int buf_size);
-    int ReadFixedHeader(int fd, FixedHeader &f_hed);
+    broker_err SendCommand(const char *buf, int buf_size);
+    broker_err ReadFixedHeader(int fd, FixedHeader &f_hed);
     std::string GetControlPacketTypeName(uint8_t _packet);
     void CloseConnection(int fd);
 
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    //unordered_map<std::string, queue<tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
     std::unordered_map<std::string, std::list<std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
 
     std::shared_mutex qos_mutex;
@@ -135,9 +133,9 @@ public:
         return instance;
     }
 
-    int AddClient(int sock, const std::string &_ip);
+    broker_err AddClient(int sock, const std::string &_ip);
     void DelClient(int sock);
-    int InitControlSocket(const std::string& sock_path);
+    broker_err InitControlSocket(const std::string& sock_path);
 
     void AddQosEvent(const std::string& client_id, const std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>& mqtt_message);
     void DelQosEvent(const std::string& client_id, uint16_t packet_id);
@@ -166,5 +164,3 @@ int HandleMqttUnsubscribe(std::shared_ptr<Client>& pClient, const std::shared_pt
                           std::shared_ptr<spdlog::logger>& lg, UnsubscribeVH&  p_vh, std::list<std::string> &topics_to_unsubscribe);
 
 int HandleMqttPubrel(const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, TypicalVH&  t_vh);
-
-#endif //MQTT_BROKER_H

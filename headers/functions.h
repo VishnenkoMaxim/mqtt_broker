@@ -1,9 +1,4 @@
-//
-// Created by Vishnenko Maxim on 06.04.2023.
-//
-
-#ifndef MQTT_BROKER_FUNCTIONS_H
-#define MQTT_BROKER_FUNCTIONS_H
+#pragma once
 
 #include <memory>
 #include <list>
@@ -105,5 +100,3 @@ std::string GenRandom(const uint8_t len);
 
 template <class Type>
 std::ostream& operator << (std::ostream &os, const std::vector<Type> &_vec);
-
-#endif //MQTT_BROKER_FUNCTIONS_H

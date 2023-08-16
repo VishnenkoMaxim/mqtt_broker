@@ -1,5 +1,4 @@
-#ifndef MQTT_BROKER_MQTT_PROTOCOL_H
-#define MQTT_BROKER_MQTT_PROTOCOL_H
+#pragma once
 
 #include <strings.h>
 #include <stdlib.h>
@@ -632,5 +631,3 @@ namespace mqtt_protocol{
     std::shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size);
     std::shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, const std::shared_ptr<MqttBinaryDataEntity> &message, uint32_t &size);
 }
-
-#endif //MQTT_BROKER_MQTT_PROTOCOL_H

@@ -131,14 +131,14 @@ void Broker::ServerThread(){
                                 int fd = vec_fds[i].fd;
                                 broker.clients[fd]->SetPacketLastTime(current_time);
                                 FixedHeader f_head;
-                                int ret = broker.ReadFixedHeader(fd, f_head);
+                                broker_err ret = broker.ReadFixedHeader(fd, f_head);
                                 if (ret == broker_err::ok){
                                     broker.lg->debug("action:{}", broker.GetControlPacketTypeName(f_head.GetType())); broker.lg->flush();
                                     shared_ptr<uint8_t> buf(new uint8_t[f_head.remaining_len], default_delete<uint8_t[]>());
-                                    ret = ReadData(fd, buf.get(), f_head.remaining_len, 0);
+                                    int read_status = ReadData(fd, buf.get(), f_head.remaining_len, 0);
                                     broker.lg->debug("remaining_len:{}", f_head.remaining_len);
-                                    if (ret != (int) f_head.remaining_len){
-                                        broker.lg->error("Read error. Read {} bytes instead of {}", ret, f_head.remaining_len);
+                                    if (read_status != (int) f_head.remaining_len){
+                                        broker.lg->error("Read error. Read {} bytes instead of {}", read_status, f_head.remaining_len);
                                         fd_to_delete.push_back(fd);
                                         continue;
                                     }
@@ -155,7 +155,7 @@ void Broker::ServerThread(){
                                     } else broker.lg->debug("handle_stat OK");
                                     broker.lg->flush();
                                 } else {
-                                    broker.lg->error("Mqtt protocol error. Can't read FixedHeader. status:{}", ret);
+                                    broker.lg->error("Mqtt protocol error. Can't read FixedHeader. status:{}", static_cast<int>(ret));
                                     fd_to_delete.push_back(fd);
                                     auto pClient = broker.clients[vec_fds[i].fd];
                                     if (pClient->isWillFlag()){
@@ -216,7 +216,7 @@ Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1), p
     AddHandler(new MqttPubCompPacketHandler());
 }
 
-int Broker::AddClient(int sock, const string &_ip){
+broker_err Broker::AddClient(int sock, const string &_ip){
     current_clients++;
     shared_ptr<Client> new_client = std::make_shared<Client>(_ip);
 
@@ -274,9 +274,10 @@ void Broker::SetState(int _state) noexcept {
     state = _state;
 }
 
-int Broker::InitControlSocket(const string& sock_path) {
+broker_err Broker::InitControlSocket(const string& sock_path) {
     struct sockaddr_un serv_addr;
     unlink(sock_path.c_str());
+    control_sock_path = sock_path;
     control_sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (control_sock < 0) {
         lg->error("Error opening control socket: {}", strerror(errno));
@@ -300,7 +301,7 @@ void Broker::SetPort(int _port) noexcept {
     port = _port;
 }
 
-int Broker::SendCommand(const char *buf, const int buf_size) {
+broker_err Broker::SendCommand(const char *buf, const int buf_size) {
     struct sockaddr_un addr;
     int ret;
     int data_socket;
@@ -311,18 +312,18 @@ int Broker::SendCommand(const char *buf, const int buf_size) {
     }
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, CONTROL_SOCKET_NAME, sizeof(addr.sun_path) - 1);
+    strncpy(addr.sun_path, control_sock_path.c_str(), sizeof(addr.sun_path) - 1);
 
     ret = connect(data_socket, (const struct sockaddr *) &addr,sizeof(addr));
     if (ret == -1) {
         lg->error("Control socket is down: {}", strerror(errno));
-        return -1;
+        return broker_err::connect_err;
     }
     ret = write(data_socket, buf, buf_size);
     if (ret == -1) {
         lg->error("write error: {}", strerror(errno));
         close(data_socket);
-        return -2;
+        return broker_err::write_err;
     }
     lg->debug("sent control command: {}", buf);
     close(data_socket);
@@ -334,7 +335,7 @@ void    Broker::InitLogger(const string & _path, const size_t  _size, const size
     SetLogLevel(lg, _level);
 }
 
-int Broker::ReadFixedHeader(const int fd, FixedHeader &f_hed){
+broker_err Broker::ReadFixedHeader(const int fd, FixedHeader &f_hed){
     size_t ret = read(fd, &f_hed.first, 1);
     if (ret != 1) {
         lg->error("read error");

@@ -1,5 +1,4 @@
-#ifndef MQTT_BROKER_SENDER_H
-#define MQTT_BROKER_SENDER_H
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -67,5 +66,3 @@ public:
     void Execute();
     void Notify();
 };
-
-#endif //MQTT_BROKER_SENDER_H

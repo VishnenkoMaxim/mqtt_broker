@@ -1,5 +1,4 @@
-#ifndef MQTT_BROKER_TOPIC_STORAGE_H
-#define MQTT_BROKER_TOPIC_STORAGE_H
+#pragma once
 
 #include "mqtt_protocol.h"
 #include <shared_mutex>
@@ -28,5 +27,3 @@ private:
     std::shared_mutex qos_mtx;
     std::unordered_multimap<std::string, MqttTopic> qos_2_topics;
 };
-
-#endif //MQTT_BROKER_TOPIC_STORAGE_H

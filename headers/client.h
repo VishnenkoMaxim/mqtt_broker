@@ -1,5 +1,4 @@
-#ifndef MQTT_BROKER_CLIENT_H
-#define MQTT_BROKER_CLIENT_H
+#pragma once
 
 #include <utility>
 #include "mqtt_protocol.h"
@@ -52,5 +51,3 @@ public:
         conn_properties.~MqttPropertyChain();
     }
 };
-
-#endif //MQTT_BROKER_CLIENT_H

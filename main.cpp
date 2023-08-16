@@ -88,7 +88,7 @@ int main() {
         }
         char * ipStr = inet_ntoa(cli_addr.sin_addr);
         lg->info("New client has connected: {}", ipStr);
-        int status = broker.AddClient(newsock_fd, ipStr);
+        broker_err status = broker.AddClient(newsock_fd, ipStr);
         if (status != broker_err::ok){
             lg->error("Insertion error, close connection");
             close(newsock_fd);
@@ -98,6 +98,5 @@ int main() {
         if (broker.GetState() == broker_states::init) broker.Start();
         lg->flush();
     }
-
     return EXIT_FAILURE;
 }

@@ -1,6 +1,4 @@
-
-#ifndef MQTTPACKETHANDLER_H
-#define MQTTPACKETHANDLER_H
+#pragma once
 
 #include "mqtt_protocol.h"
 #include "client.h"
@@ -86,7 +84,3 @@ public:
 private:
     std::list<IMqttPacketHandler *> handlers;
 };
-
-
-
-#endif //MQTTPACKETHANDLER_H
