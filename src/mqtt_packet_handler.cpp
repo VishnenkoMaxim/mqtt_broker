@@ -63,7 +63,7 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
         auto data_packet = CreateMqttPacket(PUBREC << 4, answer_vh, answer_size);
 
         broker->AddCommand(fd, make_tuple(answer_size, data_packet));
-        broker->AddQosEvent(broker->clients[fd]->GetID(), make_tuple(answer_size, data_packet, vh.packet_id));
+        broker->AddQosEvent(broker->clients[fd]->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
     }
 
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);

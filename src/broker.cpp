@@ -49,11 +49,7 @@ void Broker::QoSThread(){
                 auto it_cli = broker.postponed_events.find(it.second);
                 if (it_cli != broker.postponed_events.end() && !it_cli->second.empty()){
                     for (const auto& it_messages : it_cli->second) {
-                        uint32_t len;
-                        shared_ptr<uint8_t> data;
-
-                        tie(len, data, std::ignore) = it_messages;
-                        broker.AddCommand(it.first, make_tuple(len, data));
+                        broker.AddCommand(it.first, make_tuple(it_messages.data_len, it_messages.pData));
                     }
                 }
             }
@@ -377,7 +373,7 @@ int Broker::NotifyClients(MqttTopic& topic){
 
             AddCommand(it.first, make_tuple(answer_size, data));
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
-                AddQosEvent(it.second->GetID(), make_tuple(answer_size, data, topic.GetID()));
+                AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
             }
         }
     }
@@ -399,21 +395,21 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     AddCommand(fd, make_tuple(answer_size, data));
 
     if (topic.GetQoS() > mqtt_QoS::QoS_0){
-        AddQosEvent(pClient->GetID(), make_tuple(answer_size, data, topic.GetID()));
+        AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
     }
 
     return mqtt_err::ok;
 }
 
-void Broker::AddQosEvent(const string& client_id, const tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>& mqtt_message) {
+void Broker::AddQosEvent(const string& client_id, const mqtt_packet& mqtt_message) {
     unique_lock<shared_mutex> lock(qos_mutex);
 
     if (postponed_events.find(client_id) == postponed_events.end()){
-        postponed_events.insert(make_pair(client_id, list<tuple<uint32_t, shared_ptr<uint8_t>, uint16_t>>{}));
+        postponed_events.insert(make_pair(client_id, list<mqtt_packet>{}));
     }
     postponed_events[client_id].push_back(mqtt_message);
 
-    lg->debug("Add posteponed event for client_id:{} packet_id:{}", client_id, get<2>(mqtt_message));
+    lg->debug("Add posteponed event for client_id:{} packet_id:{}", client_id, mqtt_message.packet_id);
     lg->debug("total count:{}", postponed_events[client_id].size());
 }
 
@@ -422,14 +418,10 @@ void Broker::DelQosEvent(const string& client_id, uint16_t packet_id){
 
     auto it = postponed_events.find(client_id);
     if (it != postponed_events.end() && !it->second.empty()) {
-        for (auto & it_local : it->second){
-            if (get<2>(it_local) == packet_id){
-                it->second.remove(it_local);
-                lg->debug("DelQosEvent client_id:{} packet_id:{}", client_id, packet_id);
-                lg->debug("postponed packets:{}", it->second.size());
-                return;
-            }
-        }
+        it->second.remove_if([&packet_id](const mqtt_packet& packet){return packet.packet_id == packet_id;});
+        lg->debug("DelQosEvent client_id:{} packet_id:{}", client_id, packet_id);
+        lg->debug("postponed packets:{}", it->second.size());
+        return;
     }
 }
 
@@ -444,15 +436,15 @@ bool Broker::CheckIfMoreMessages(const string& client_id){
     return false;
 }
 
-pair<uint32_t, shared_ptr<uint8_t>> Broker::GetPacket(const string& client_id, bool &found){
-    found = false;
-    auto it = postponed_events.find(client_id);
-
-    if (it != postponed_events.end()){
-        found = true;
-        return make_pair(get<0>(it->second.front()), get<1>(it->second.front()));
-    }
-    return make_pair(0, nullptr);
-}
+//pair<uint32_t, shared_ptr<uint8_t>> Broker::GetPacket(const string& client_id, bool &found){
+//    found = false;
+//    auto it = postponed_events.find(client_id);
+//
+//    if (it != postponed_events.end()){
+//        found = true;
+//        return make_pair(it->second.front().data_len, it->second.front().pData);
+//    }
+//    return make_pair(0, nullptr);
+//}
 
 

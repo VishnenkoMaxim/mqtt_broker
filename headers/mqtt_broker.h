@@ -55,6 +55,17 @@ enum broker_states : int {
     wait
 };
 
+class mqtt_packet{
+public:
+    uint32_t data_len;
+    std::shared_ptr<uint8_t> pData;
+    uint16_t packet_id;
+
+    bool operator == (const mqtt_packet& _val){
+        return packet_id == _val.packet_id;
+    }
+};
+
 class ServerCfgData{
 public:
     std::string log_file_path;
@@ -98,14 +109,14 @@ private:
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    std::unordered_map<std::string, std::list<std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
+    //std::unordered_map<std::string, std::list<std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
+    std::unordered_map<std::string, std::list<mqtt_packet>> postponed_events;
 
     std::shared_mutex qos_mutex;
     std::thread qos_thread;
     bool qos_thread_started{false};
     bool erase_old_values_in_queue{false};
     bool CheckIfMoreMessages(const std::string& client_id);
-    std::pair<uint32_t, std::shared_ptr<uint8_t>> GetPacket(const std::string& client_id, bool &found);
 
     friend MqttConnectPacketHandler;
     friend MqttPublishPacketHandler;
@@ -137,7 +148,7 @@ public:
     void DelClient(int sock);
     broker_err InitControlSocket(const std::string& sock_path);
 
-    void AddQosEvent(const std::string& client_id, const std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>& mqtt_message);
+    void AddQosEvent(const std::string& client_id, const mqtt_packet& mqtt_message);
     void DelQosEvent(const std::string& client_id, uint16_t packet_id);
     void SetEraseOldValues(bool val) noexcept;
 
