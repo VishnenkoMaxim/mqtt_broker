@@ -147,6 +147,7 @@ public:
     broker_err AddClient(int sock, const std::string &_ip);
     void DelClient(int sock);
     broker_err InitControlSocket(const std::string& sock_path);
+    int InitSocket();
 
     void AddQosEvent(const std::string& client_id, const mqtt_packet& mqtt_message);
     void DelQosEvent(const std::string& client_id, uint16_t packet_id);

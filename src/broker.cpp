@@ -293,6 +293,35 @@ broker_err Broker::InitControlSocket(const string& sock_path) {
     return broker_err::ok;
 }
 
+int Broker::InitSocket(){
+    int sock_fd;
+    struct sockaddr_in serv_addr;
+
+    sock_fd = socket(AF_INET, SOCK_STREAM | O_NONBLOCK, 0);
+    if (sock_fd < 0) {
+        lg->error("Error opening socket: {}", strerror(errno));
+        return 0;
+    }
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(port);
+    while(true) {
+        if (bind(sock_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+            lg->error("Error binding socket: {}", strerror(errno));
+            lg->flush();
+            sleep(5);
+            continue;
+        }
+        break;
+    }
+    if (listen(sock_fd, 40) < 0){
+        lg->error("Error listening socket: {}", strerror(errno));
+        return 0;
+    }
+    return sock_fd;
+}
+
 void Broker::SetPort(int _port) noexcept {
     port = _port;
 }
