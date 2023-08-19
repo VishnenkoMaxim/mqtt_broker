@@ -1,14 +1,6 @@
 #include <iostream>
-#include <stdio.h>
 #include <cstdlib>
-#include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <arpa/inet.h>
 #include <memory>
 
 #include "version.h"
@@ -39,40 +31,25 @@ int main() {
     broker.InitLogger(cfg_data.log_file_path, cfg_data.log_max_size, cfg_data.log_max_files, cfg_data.level);
     broker.SetEraseOldValues(false);
 
-    int newsock_fd;
-    struct sockaddr_in cli_addr;
-    socklen_t c_len = sizeof(cli_addr);
-
     int sock_fd = broker.InitSocket();
     if (sock_fd < 0) exit(0);
     broker.InitControlSocket(cfg_data.control_socket_path);
 
-    struct pollfd fds;
-    fds.fd = sock_fd;
-    fds.events = POLLIN;
-
     while (true){
         lg->info("Waiting for a client..."); lg->flush();
-        if (poll(&fds, 1, -1) == -1) {
-            lg->error("Error poll(): {}", strerror(errno));
-            sleep(1);
-            continue;
+        char ip[16];
+        auto newsock_fd = broker.WaitForClient(ip);
+        if(newsock_fd > 0) {
+            lg->info("New client has connected: {}", ip);
+            broker_err status = broker.AddClient(newsock_fd, ip);
+            if (status != broker_err::ok) {
+                lg->error("Insertion error, close connection");
+                close(newsock_fd);
+                continue;
+            }
+            lg->debug("New client has been added: fd:{}", newsock_fd);
+            if (broker.GetState() == broker_states::init) broker.Start();
         }
-        newsock_fd = accept(fds.fd, (struct sockaddr *) &cli_addr, &c_len);
-        if (newsock_fd < 0){
-            lg->error("Error accept socket: {}", strerror(errno));
-            continue;
-        }
-        char * ipStr = inet_ntoa(cli_addr.sin_addr);
-        lg->info("New client has connected: {}", ipStr);
-        broker_err status = broker.AddClient(newsock_fd, ipStr);
-        if (status != broker_err::ok){
-            lg->error("Insertion error, close connection");
-            close(newsock_fd);
-            continue;
-        }
-        lg->debug("New client has been added: fd:{}", newsock_fd);
-        if (broker.GetState() == broker_states::init) broker.Start();
         lg->flush();
     }
     return EXIT_FAILURE;

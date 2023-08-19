@@ -95,6 +95,7 @@ private:
 
     int state;
     int control_sock;
+    int main_socket;
     std::string control_sock_path;
     int port{};
     std::shared_ptr<spdlog::logger> lg;
@@ -109,7 +110,6 @@ private:
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
 
-    //std::unordered_map<std::string, std::list<std::tuple<uint32_t, std::shared_ptr<uint8_t>, uint16_t>>> postponed_events;
     std::unordered_map<std::string, std::list<mqtt_packet>> postponed_events;
 
     std::shared_mutex qos_mutex;
@@ -148,6 +148,7 @@ public:
     void DelClient(int sock);
     broker_err InitControlSocket(const std::string& sock_path);
     int InitSocket();
+    int WaitForClient(char* _ip);
 
     void AddQosEvent(const std::string& client_id, const mqtt_packet& mqtt_message);
     void DelQosEvent(const std::string& client_id, uint16_t packet_id);

@@ -319,7 +319,29 @@ int Broker::InitSocket(){
         lg->error("Error listening socket: {}", strerror(errno));
         return 0;
     }
+    main_socket = sock_fd;
     return sock_fd;
+}
+
+int Broker::WaitForClient(char* _ip){
+    struct pollfd fds;
+    fds.fd = main_socket;
+    fds.events = POLLIN;
+
+    struct sockaddr_in cli_addr;
+    socklen_t c_len = sizeof(cli_addr);
+
+    if (poll(&fds, 1, -1) == -1) {
+        lg->error("Error poll(): {}", strerror(errno));
+        return -1;
+    }
+    int newsock_fd = accept(fds.fd, (struct sockaddr *) &cli_addr, &c_len);
+    if (newsock_fd < 0){
+        lg->error("Error accept socket: {}", strerror(errno));
+        return -2;
+    }
+    strcpy(_ip, inet_ntoa(cli_addr.sin_addr));
+    return newsock_fd;
 }
 
 void Broker::SetPort(int _port) noexcept {
