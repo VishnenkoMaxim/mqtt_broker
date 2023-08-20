@@ -7,6 +7,8 @@ set(PROJECT_VERSION 0.0.${PATCH_VERSION})
 set(CMAKE_CXX_COMPILER "/usr/bin/clang")
 project(mqtt_broker VERSION ${PROJECT_VERSION})
 
+option(STATIC_BUILD "static build" OFF)
+
 configure_file(version.h.in version.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(headers)
@@ -18,7 +20,13 @@ link_directories(${CMAKE_BINARY_DIR})
 
 add_library(functions src/functions.cpp)
 add_library(command src/command.cpp)
-add_library(mqtt_protocol SHARED src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
+
+if (STATIC_BUILD)
+    add_library(mqtt_protocol STATIC src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
+    set(CMAKE_EXE_LINKER_FLAGS " -static")
+else()
+    add_library(mqtt_protocol SHARED src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
+endif()
 
 add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp src/topic_storage.cpp src/mqtt_packet_handler.cpp)
 
@@ -28,7 +36,7 @@ target_include_directories(mqtt_protocol PRIVATE "${CMAKE_BINARY_DIR}")
 target_include_directories(command PRIVATE "${CMAKE_BINARY_DIR}")
 
 target_link_libraries(command PRIVATE functions)
-target_link_libraries(mqtt_broker PRIVATE spdlog functions command mqtt_protocol config++ stdc++ m)
+target_link_libraries(mqtt_broker PRIVATE functions command mqtt_protocol config++ stdc++ m)
 
 add_subdirectory(test)
 

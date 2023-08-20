@@ -30,7 +30,6 @@ void Broker::QoSThread(){
 
     shared_lock<shared_mutex> lock(broker.qos_mutex);
     lock.unlock();
-
     map<int, string> clients_id_map;
 
     while(true){

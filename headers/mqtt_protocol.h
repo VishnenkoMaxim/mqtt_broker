@@ -421,6 +421,7 @@ namespace mqtt_protocol{
         uint16_t alive;
 
         ConnectVH();
+        ConnectVH(uint8_t _flags, uint16_t _alive);
 
         [[nodiscard]] uint32_t GetSize() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;

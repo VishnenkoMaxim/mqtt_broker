@@ -9,6 +9,11 @@ ConnectVH::ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0){
     memset(name, 0, 4);
 };
 
+ConnectVH::ConnectVH(uint8_t _flags, uint16_t _alive) : prot_name_len(4), version(5), conn_flags(_flags), alive(_alive)  {
+    memset(name, 0, 4);
+    strncpy(name, "MQTT", 4);
+}
+
 uint32_t ConnectVH::GetSize() const {
     return sizeof(prot_name_len) + sizeof(version) + 4 + sizeof(conn_flags) + sizeof(alive);
 }
@@ -22,6 +27,7 @@ void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     local_offset += 4 + sizeof(version) + sizeof(conn_flags);
     tmp = htons(alive);
     memcpy(dst_buf + local_offset, &tmp, sizeof(alive));
+    local_offset += sizeof(alive);
     offset += local_offset;
 }
 
