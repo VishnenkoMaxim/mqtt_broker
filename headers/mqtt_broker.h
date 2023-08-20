@@ -117,6 +117,7 @@ private:
     bool qos_thread_started{false};
     bool erase_old_values_in_queue{false};
     bool CheckIfMoreMessages(const std::string& client_id);
+    std::pair<uint32_t, std::shared_ptr<uint8_t>> GetPacket(const std::string& client_id, bool &found);
 
     friend MqttConnectPacketHandler;
     friend MqttPublishPacketHandler;
@@ -137,7 +138,7 @@ public:
 
     static void ServerThread();
     [[noreturn]] static void SenderThread(int id);
-    static void QoSThread();
+    [[noreturn]] static void QoSThread();
 
     static Broker& GetInstance(){
         static Broker instance;

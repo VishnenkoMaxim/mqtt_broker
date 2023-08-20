@@ -42,15 +42,16 @@ MqttPublishPacketHandler::MqttPublishPacketHandler(): IMqttPacketHandler(mqtt_pa
 int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     PublishVH vh;
     auto pMessage = make_shared<MqttBinaryDataEntity>();
+    auto pClient = broker->clients[fd];
 
     int handle_stat = HandleMqttPublish(f_header, data, broker->lg, vh, pMessage);
     if (handle_stat != mqtt_err::ok){
-        broker->lg->error("[{}] handle PUBLISH error", broker->clients[fd]->GetIP());
+        broker->lg->error("[{}] handle PUBLISH error", pClient->GetIP());
         return handle_stat;
     }
-    broker->lg->info("[{}] topic name:'{}' packet_id:{} property_count:{}",broker->clients[fd]->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
+    broker->lg->info("[{}] topic name:'{}' packet_id:{} property_count:{}",pClient->GetIP(), vh.topic_name.GetString(), vh.packet_id, vh.p_chain.Count());
     if (f_header.isRETAIN()){
-        broker->lg->info("[{}] Store topic:{}",broker->clients[fd]->GetIP(), vh.topic_name.GetString());
+        broker->lg->info("[{}] Store topic:{}",pClient->GetIP(), vh.topic_name.GetString());
         broker->StoreTopicValue(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
     }
     if (f_header.QoS() == mqtt_QoS::QoS_1){
@@ -62,14 +63,13 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
         VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
         auto data_packet = CreateMqttPacket(PUBREC << 4, answer_vh, answer_size);
 
-        broker->AddCommand(fd, make_tuple(answer_size, data_packet));
-        broker->AddQosEvent(broker->clients[fd]->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
+        if (!broker->CheckIfMoreMessages(pClient->GetID())) broker->AddCommand(fd, make_tuple(answer_size, data_packet));
+        broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
     }
-
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
 
     if (f_header.QoS() != mqtt_QoS::QoS_2) broker->NotifyClients(topic);
-    else broker->AddQoSTopic(broker->clients[fd]->GetID(), topic);
+    else broker->AddQoSTopic(pClient->GetID(), topic);
 
     return mqtt_err::ok;
 }
@@ -116,20 +116,21 @@ MqttPubAckPacketHandler::MqttPubAckPacketHandler() : IMqttPacketHandler(mqtt_pac
 
 int MqttPubAckPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     PubackVH p_vh;
+    auto pClient = broker->clients[fd];
+
     HandleMqttPuback(data, broker->lg, p_vh);
     broker->lg->debug("[{}] puback: id:{}",  broker->clients[fd]->GetIP(), p_vh.packet_id); broker->lg->flush();
-    auto pClient = broker->clients[fd];
     broker->DelQosEvent(pClient->GetID(), p_vh.packet_id);
 
-//    if (broker->CheckIfMoreMessages(pClient->GetID())){
-//        broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP()); broker->lg->flush();
-//        bool found;
-//        auto data_mes = broker->GetPacket(pClient->GetID(), found);
-//        if (found){
-//            broker->lg->debug("[{}] found kept message", broker->clients[fd]->GetIP()); broker->lg->flush();
-//            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
-//        }
-//    }
+    if (broker->CheckIfMoreMessages(pClient->GetID())){
+        //broker->lg->debug("[{}] There are more messages", broker->clients[fd]->GetIP()); broker->lg->flush();
+        bool found;
+        auto data_mes = broker->GetPacket(pClient->GetID(), found);
+        if (found){
+            broker->lg->debug("[{}] found kept message", pClient->GetIP()); broker->lg->flush();
+            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+        }
+    }
     broker->lg->flush();
     return mqtt_err::ok;
 }
@@ -189,6 +190,15 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBCOMP << 4, answer_vh, answer_size)));
     broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
 
+    if (broker->CheckIfMoreMessages(pClient->GetID())){
+        bool found;
+        auto data_mes = broker->GetPacket(pClient->GetID(), found);
+        if (found){
+            broker->lg->debug("[{}] found kept message", pClient->GetIP()); broker->lg->flush();
+            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+        }
+    }
+
     bool found;
     auto topic = broker->GetQoSTopic(pClient->GetID(), t_vh.packet_id, found);
     if (found){
@@ -230,6 +240,16 @@ int MqttPubCompPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
     TypicalVH t_vh;
     HandleMqttPuback(data, broker->lg, t_vh);
     broker->lg->debug("[{}] pubcomp: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id, t_vh.reason_code);
+
+    auto pClient = broker->clients[fd];
+    if (broker->CheckIfMoreMessages(pClient->GetID())){
+        bool found;
+        auto data_mes = broker->GetPacket(pClient->GetID(), found);
+        if (found){
+            broker->lg->debug("[{}] found kept message", broker->clients[fd]->GetIP()); broker->lg->flush();
+            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+        }
+    }
 
     broker->lg->flush();
     return mqtt_err::ok;
