@@ -130,7 +130,8 @@ namespace mqtt_protocol{
         var_int_err,
         mqtt_property_err,
         disconnect,
-        handle_error
+        handle_error,
+        protocol_version_err
     };
 
     class FixedHeader{

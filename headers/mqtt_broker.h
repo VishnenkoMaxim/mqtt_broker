@@ -23,6 +23,7 @@
 #include "command.h"
 #include "topic_storage.h"
 #include "MqttPacketHandler.h"
+#include "mqtt_error_handler.h"
 
 #define DEFAULT_CFG_FILE    "/home/cfg/mqtt_broker.cfg"
 #define DEFAULT_LOG_FILE    "/home/logs/mqtt_broker.log"
@@ -30,6 +31,7 @@
 #define CONTROL_SOCKET_NAME "/tmp/9Lq7BNBnBycd6nxy.socket"
 
 #define _1MB_                1048576
+#define MQTT_VERSION        5
 
 enum class cfg_err {
     ok,
@@ -86,7 +88,7 @@ public:
 ServerCfgData ReadConfig(const char *path, cfg_err &err);
 [[noreturn]] void SenderThread(int id);
 
-class Broker : public Commands, public CTopicStorage, public MqttPacketHandler {
+class Broker : public Commands, public CTopicStorage, public MqttPacketHandler, private MqttErrorHandler {
 private:
     std::shared_mutex clients_mtx;
     unsigned int current_clients;
@@ -98,7 +100,6 @@ private:
     int main_socket;
     std::string control_sock_path;
     int port{};
-    std::shared_ptr<spdlog::logger> lg;
 
     Broker();
 
@@ -144,6 +145,8 @@ public:
         static Broker instance;
         return instance;
     }
+
+    std::shared_ptr<spdlog::logger> lg;
 
     broker_err AddClient(int sock, const std::string &_ip);
     void DelClient(int sock);

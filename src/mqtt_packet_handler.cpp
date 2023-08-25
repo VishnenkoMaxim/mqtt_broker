@@ -18,21 +18,20 @@ int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
     broker->lg->debug("handleConnect");
     int handle_stat = HandleMqttConnect(broker->clients[fd], data, broker->lg);
     if (handle_stat != mqtt_err::ok){
-        broker->lg->error("[{}] handleConnect error", broker->clients[fd]->GetIP());
+        broker->lg->error("[{}] handleConnect error, handle_stat: {}", broker->clients[fd]->GetIP(), handle_stat);
         return handle_stat;
     }
 
     uint32_t answer_size;
     MqttPropertyChain p_chain;
     p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(broker->clients[fd]->GetID()))));
-    //p_chain.AddProperty(make_shared<MqttProperty>(maximum_qos, shared_ptr<MqttEntity>(new MqttByteEntity(mqtt_QoS::QoS_1)))); // there is no need when use QoS 2
     p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
     p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
     p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
     p_chain.AddProperty(make_shared<MqttProperty>(shared_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
 
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(0,success, std::move(p_chain)))};
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(CONNACK << 4, answer_vh, answer_size)});
     return mqtt_err::ok;
 }
 
@@ -57,13 +56,13 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
     if (f_header.QoS() == mqtt_QoS::QoS_1){
         uint32_t answer_size;
         VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id,success, MqttPropertyChain()))};
-        broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)));
+        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(PUBACK << 4, answer_vh, answer_size)});
     } else if (f_header.QoS() == mqtt_QoS::QoS_2){
         uint32_t answer_size;
         VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
         auto data_packet = CreateMqttPacket(PUBREC << 4, answer_vh, answer_size);
 
-        if (!broker->CheckIfMoreMessages(pClient->GetID())) broker->AddCommand(fd, make_tuple(answer_size, data_packet));
+        if (!broker->CheckIfMoreMessages(pClient->GetID())) broker->AddCommand(fd, tuple{answer_size, data_packet});
         broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
     }
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
@@ -81,8 +80,9 @@ int MqttSubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const 
     SubscribeVH vh;
     vector<uint8_t> reason_codes;
     list<pair<string, uint8_t>> tpcs;
+    auto pClient = broker->clients[fd];
 
-    int handle_stat = HandleMqttSubscribe(broker->clients[fd], f_header, data, broker->lg, vh, reason_codes, tpcs);
+    int handle_stat = HandleMqttSubscribe(pClient, f_header, data, broker->lg, vh, reason_codes, tpcs);
     if (handle_stat != mqtt_err::ok){
         broker->lg->error("[{}] handle SUBSCRIBE error", broker->clients[fd]->GetIP());
         return handle_stat;
@@ -90,20 +90,20 @@ int MqttSubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const 
 
     //broker->lg->info("[{}] Subscribe. id:{} property count:{}", broker->clients[fd]->GetIP(), vh.packet_id, vh.p_chain.Count());
     for(auto it = vh.p_chain.Cbegin(); it != vh.p_chain.Cend(); ++it) {
-        broker->lg->debug("[{}] property id:{} val:{}", broker->clients[fd]->GetIP(), it->first,
+        broker->lg->debug("[{}] property id:{} val:{}", pClient->GetIP(), it->first,
                          it->second->GetUint());
     }
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new SubackVH(vh.packet_id, MqttPropertyChain(), reason_codes))};
     uint32_t answer_size;
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(SUBACK << 4, answer_vh, answer_size)});
 
     for (const auto& it : tpcs){
-        broker->lg->info("[{}] serach for topic name:'{}' among retained", broker->clients[fd]->GetIP(), it.first);
+        broker->lg->info("[{}] serach for topic name:'{}' among retained", pClient->GetIP(), it.first);
         bool found;
         auto retain_topic = broker->GetTopic(it.first, found);
 
         if(found){
-            broker->lg->debug("[{}] Found retain topic:{}",  broker->clients[fd]->GetIP(), it.first); broker->lg->flush();
+            broker->lg->debug("[{}] Found retain topic:{}",  pClient->GetIP(), it.first); broker->lg->flush();
             retain_topic.SetQos(it.second);
             broker->NotifyClient(fd, retain_topic);
         }
@@ -128,7 +128,7 @@ int MqttPubAckPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
         auto data_mes = broker->GetPacket(pClient->GetID(), found);
         if (found){
             broker->lg->debug("[{}] found kept message", pClient->GetIP()); broker->lg->flush();
-            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+            broker->AddCommand(fd, tuple{data_mes.first, data_mes.second});
         }
     }
     broker->lg->flush();
@@ -140,6 +140,9 @@ MqttDisconnectPacketHandler::MqttDisconnectPacketHandler() : IMqttPacketHandler(
 
 int MqttDisconnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, [[maybe_unused]] const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     broker->lg->info("[{}] Client has disconnected", broker->clients[fd]->GetIP());
+    if (data && f_header.remaining_len > 0) {
+        broker->lg->info("[{}] reason code: {}", broker->clients[fd]->GetIP(), data.get()[0]);
+    }
     return mqtt_err::disconnect;
 }
 
@@ -149,7 +152,7 @@ MqttPingPacketHandler::MqttPingPacketHandler() : IMqttPacketHandler(mqtt_pack_ty
 int MqttPingPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, [[maybe_unused]] const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     broker->lg->info("[{}] PINGREQ", broker->clients[fd]->GetIP());
     uint32_t answer_size;
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PINGRESP << 4, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(PINGRESP << 4, answer_size)});
     return mqtt_err::ok;
 }
 
@@ -171,7 +174,7 @@ int MqttUnsubscribePacketHandler::HandlePacket(const FixedHeader& f_header, cons
 
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new UnsubAckVH(u_vh.packet_id, MqttPropertyChain(), reason_codes))};
     uint32_t answer_size;
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(UNSUBACK << 4, answer_vh, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(UNSUBACK << 4, answer_vh, answer_size)});
     return mqtt_err::ok;
 }
 
@@ -187,7 +190,7 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
 
     uint32_t answer_size;
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBCOMP << 4, answer_vh, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(PUBCOMP << 4, answer_vh, answer_size)});
     broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
 
     if (broker->CheckIfMoreMessages(pClient->GetID())){
@@ -195,7 +198,7 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
         auto data_mes = broker->GetPacket(pClient->GetID(), found);
         if (found){
             broker->lg->debug("[{}] found kept message", pClient->GetIP()); broker->lg->flush();
-            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+            broker->AddCommand(fd, tuple{data_mes.first, data_mes.second});
         }
     }
 
@@ -227,7 +230,7 @@ int MqttPubRecPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
     uint32_t answer_size;
     broker->lg->debug("[{}] pubrec: id:{} reason_code:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id, t_vh.reason_code);
-    broker->AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(PUBREL << 4 | 1 << 1, answer_vh, answer_size)));
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(PUBREL << 4 | 1 << 1, answer_vh, answer_size)});
 
     broker->lg->flush();
     return mqtt_err::ok;
@@ -247,7 +250,7 @@ int MqttPubCompPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
         auto data_mes = broker->GetPacket(pClient->GetID(), found);
         if (found){
             broker->lg->debug("[{}] found kept message", broker->clients[fd]->GetIP()); broker->lg->flush();
-            broker->AddCommand(fd, make_tuple(data_mes.first, data_mes.second));
+            broker->AddCommand(fd, tuple{data_mes.first, data_mes.second});
         }
     }
 

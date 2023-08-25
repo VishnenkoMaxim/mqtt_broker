@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <memory>
 #include <sys/socket.h>
@@ -28,17 +27,17 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start QoSThread{}");
 
-    shared_lock<shared_mutex> lock(broker.qos_mutex);
+    shared_lock lock{broker.qos_mutex};
     lock.unlock();
     map<int, string> clients_id_map;
 
     while(true){
-        //broker.lg->debug("QoSThread execute"); broker.lg->flush();
+        //broker.lg->debug("QoSThread execute");
         if (!broker.postponed_events.empty()){
             clients_id_map.clear();
             lock.lock();
 
-            shared_lock<shared_mutex> lock_2(broker.clients_mtx);
+            shared_lock lock_2{broker.clients_mtx};
             for(const auto &it : broker.clients){
                 clients_id_map.insert(make_pair(it.first, it.second->GetID()));
             }
@@ -47,13 +46,12 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
             for(const auto& it : clients_id_map){
                 auto it_cli = broker.postponed_events.find(it.second);
                 if (it_cli != broker.postponed_events.end() && !it_cli->second.empty()){
-                    broker.AddCommand(it.first, make_tuple(it_cli->second.front().data_len, it_cli->second.front().pData));
+                    broker.AddCommand(it.first, tuple{it_cli->second.front().data_len, it_cli->second.front().pData});
                 }
             }
             lock.unlock();
             broker.lg->flush();
         }
-
         this_thread::sleep_for(chrono::seconds(1));
     }
 }
@@ -139,12 +137,8 @@ void Broker::ServerThread(){
 
                                     int handle_stat = broker.HandlePacket(f_head, buf, &broker, fd);
                                     if (handle_stat != mqtt_err::ok){
-                                        if (handle_stat == mqtt_err::handle_error){
-                                            broker.lg->warn("Unsupported mqtt packet. Ignore it.");
-                                        } else {
-                                            if (handle_stat != mqtt_err::disconnect) broker.lg->error("handle error {}", handle_stat);
-                                            fd_to_delete.push_back(fd);
-                                        }
+                                        broker.HandleError(handle_stat, broker, fd);
+                                        fd_to_delete.push_back(fd);
                                     } else broker.lg->debug("handle_stat OK");
                                     broker.lg->flush();
                                 } else {
@@ -173,7 +167,7 @@ void Broker::ServerThread(){
                                 broker.lg->warn("[{}] time out, disconnect", pClient->GetIP());
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout, MqttPropertyChain()))};
                                 uint32_t answer_size;
-                                broker.AddCommand(fd, make_tuple(answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)));
+                                broker.AddCommand(fd, tuple{answer_size, CreateMqttPacket(DISCONNECT << 4, answer_vh, answer_size)});
                                 fd_to_delete.push_back(fd);
                                 if (pClient->isWillFlag()){
                                     broker.NotifyClients(pClient->will_topic);
@@ -185,7 +179,6 @@ void Broker::ServerThread(){
                 if (!fd_to_delete.empty()){
                     broker.SetState(broker_states::started);
                     for(const auto &it : fd_to_delete){
-                        auto pClient = broker.clients[it];
                         broker.CloseConnection(it);
                     }
                 }
@@ -207,13 +200,17 @@ Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1), p
     AddHandler(new MqttPubRelPacketHandler());
     AddHandler(new MqttPubRecPacketHandler());
     AddHandler(new MqttPubCompPacketHandler());
+
+    AddErrorHandler(make_shared<MqttDisconnectErr>());
+    AddErrorHandler(make_shared<MqttProtocolVersionErr>());
+    AddErrorHandler(make_shared<MqttHandleErr>());
 }
 
 broker_err Broker::AddClient(int sock, const string &_ip){
     current_clients++;
     shared_ptr<Client> new_client = std::make_shared<Client>(_ip);
 
-    unique_lock<shared_mutex> lock(clients_mtx);
+    unique_lock lock{clients_mtx};
     auto ret = clients.insert(make_pair(sock, new_client));
     lock.unlock();
 
@@ -224,11 +221,10 @@ broker_err Broker::AddClient(int sock, const string &_ip){
 }
 
 void Broker::DelClient(int sock){
-    lg->debug("DelClient");
+    lg->debug("DelClient fd:{}", sock); lg->flush();
     current_clients--;
-    lg->debug("Total cl_num: {}", current_clients);
 
-    unique_lock<shared_mutex> lock(clients_mtx);
+    unique_lock lock{clients_mtx};
     clients.erase(sock);
 }
 
@@ -399,7 +395,7 @@ string Broker::GetControlPacketTypeName(const uint8_t _packet){
     return pack_type_names[_packet];
 }
 void Broker::CloseConnection(int fd){
-    lg->debug("Close connection fd:{}", fd);
+    lg->debug("Close connection fd:{}", fd); lg->flush();
     close(fd);
     DelClient(fd);
 }
@@ -420,10 +416,10 @@ int Broker::NotifyClients(MqttTopic& topic){
             shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | topic.GetQoS() << 1, answer_vh, topic.GetPtr(), answer_size);
 
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
-                if (!CheckIfMoreMessages(it.second->GetID())) AddCommand(it.first, make_tuple(answer_size, data));
+                if (!CheckIfMoreMessages(it.second->GetID())) AddCommand(it.first, tuple{answer_size, data});
                 AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
             } else {
-                AddCommand(it.first, make_tuple(answer_size, data));
+                AddCommand(it.first, tuple{answer_size, data});
             }
         }
     }
@@ -444,15 +440,15 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     lg->debug("Add topic to send :{}", topic.GetName()); lg->flush();
 
     if (topic.GetQoS() > mqtt_QoS::QoS_0){
-        if (!CheckIfMoreMessages(pClient->GetID())) AddCommand(fd, make_tuple(answer_size, data));
+        if (!CheckIfMoreMessages(pClient->GetID())) AddCommand(fd, tuple{answer_size, data});
         AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
-    } else AddCommand(fd, make_tuple(answer_size, data));
+    } else AddCommand(fd, tuple{answer_size, data});
 
     return mqtt_err::ok;
 }
 
 void Broker::AddQosEvent(const string& client_id, const mqtt_packet& mqtt_message) {
-    unique_lock<shared_mutex> lock(qos_mutex);
+    unique_lock lock{qos_mutex};
 
     if (postponed_events.find(client_id) == postponed_events.end()){
         postponed_events.insert(make_pair(client_id, list<mqtt_packet>{}));
@@ -464,7 +460,7 @@ void Broker::AddQosEvent(const string& client_id, const mqtt_packet& mqtt_messag
 }
 
 void Broker::DelQosEvent(const string& client_id, uint16_t packet_id){
-    unique_lock<shared_mutex> lock(qos_mutex);
+    unique_lock lock{qos_mutex};
 
     auto it = postponed_events.find(client_id);
     if (it != postponed_events.end() && !it->second.empty()) {

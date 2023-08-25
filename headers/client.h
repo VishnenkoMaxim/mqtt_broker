@@ -48,6 +48,6 @@ public:
     void SetPacketLastTime(time_t _cur_time);
 
     ~Client(){
-        conn_properties.~MqttPropertyChain();
+        //conn_properties.~MqttPropertyChain();
     }
 };

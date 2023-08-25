@@ -7,7 +7,7 @@ set(PROJECT_VERSION 0.0.${PATCH_VERSION})
 set(CMAKE_CXX_COMPILER "/usr/bin/clang")
 project(mqtt_broker VERSION ${PROJECT_VERSION})
 
-option(STATIC_BUILD "static build" OFF)
+option(STATIC_BUILD "static build" ON)
 
 configure_file(version.h.in version.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -28,7 +28,7 @@ else()
     add_library(mqtt_protocol SHARED src/mqtt_protocol.cpp src/mqtt_variable_header.cpp src/mqtt_fixed_header.cpp src/mqtt_topic.cpp)
 endif()
 
-add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp src/topic_storage.cpp src/mqtt_packet_handler.cpp)
+add_executable(mqtt_broker main.cpp src/broker.cpp src/client.cpp src/handlers.cpp src/topic_storage.cpp src/mqtt_packet_handler.cpp src/mqtt_error_handler.cpp)
 
 set_target_properties(mqtt_broker command functions mqtt_protocol PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(functions PRIVATE "${CMAKE_BINARY_DIR}")

@@ -15,6 +15,10 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
             "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version,
             con_vh.conn_flags, con_vh.alive);
 
+    if (con_vh.version != MQTT_VERSION){
+        return mqtt_err::protocol_version_err;
+    }
+
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
 
@@ -98,14 +102,13 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
-    SubscribeVH s_vh(buf, offset);
-    vh = std::move(s_vh);
+    vh = SubscribeVH(buf, offset);
 
     while(offset < fh.remaining_len){
         uint8_t options;
         uint16_t name_len = ConvertToHost2Bytes(buf.get() + offset);
         offset += sizeof(name_len);
-        string topic_name((char *) buf.get() + offset, name_len);
+        string topic_name((char *) (buf.get() + offset), name_len);
         offset += name_len;
         memcpy(&options, buf.get() + offset, sizeof(options));
         offset += sizeof(options);
