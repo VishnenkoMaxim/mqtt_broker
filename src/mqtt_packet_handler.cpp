@@ -16,15 +16,17 @@ MqttConnectPacketHandler::MqttConnectPacketHandler() : IMqttPacketHandler(mqtt_p
 
 int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, const int fd){
     broker->lg->debug("handleConnect");
-    int handle_stat = HandleMqttConnect(broker->clients[fd], data, broker->lg);
+    auto pClient = broker->clients[fd];
+
+    int handle_stat = HandleMqttConnect(pClient, data, broker->lg, broker);
     if (handle_stat != mqtt_err::ok){
-        broker->lg->error("[{}] handleConnect error, handle_stat: {}", broker->clients[fd]->GetIP(), handle_stat);
+        broker->lg->error("[{}] handleConnect error, handle_stat: {}", pClient->GetIP(), handle_stat);
         return handle_stat;
     }
 
     uint32_t answer_size;
     MqttPropertyChain p_chain;
-    p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(broker->clients[fd]->GetID()))));
+    p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(pClient->GetID()))));
     p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
     p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
     p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));

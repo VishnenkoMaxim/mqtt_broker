@@ -28,12 +28,17 @@ public:
     void HandleError(Broker& broker, int fd) override;
 };
 
+class MqttDuplicateIDErr : public IMqttErrorHandler{
+public:
+    MqttDuplicateIDErr();
+    void HandleError(Broker& broker, int fd) override;
+};
+
 class MqttHandleErr : public IMqttErrorHandler{
 public:
     MqttHandleErr();
     void HandleError(Broker& broker, int fd) override;
 };
-
 
 //-----------------------------------------------------------------------------------
 

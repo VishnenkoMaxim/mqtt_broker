@@ -92,8 +92,7 @@ class Broker : public Commands, public CTopicStorage, public MqttPacketHandler, 
 private:
     std::shared_mutex clients_mtx;
     unsigned int current_clients;
-    std::unordered_multimap<std::string, int> subscribe_data;
-    std::map<int, std::shared_ptr<Client>> clients;
+    std::unordered_map<int, std::shared_ptr<Client>> clients;
 
     int state;
     int control_sock;
@@ -166,16 +165,17 @@ public:
     void    InitLogger(const std::string & _path, size_t  _size, size_t _max_files, int _level);
 
     void Start();
+    bool CheckClientID(const std::string& client_id) const noexcept;
 };
 
-int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg);
+int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, Broker* broker);
 
 int HandleMqttPublish(const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PublishVH &vh, std::shared_ptr<MqttBinaryDataEntity> &message);
 
 int HandleMqttSubscribe(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg,
                         SubscribeVH &vh, std::vector<uint8_t> &_reason_codes, std::list<std::pair<std::string, uint8_t>>& subscribe_topics);
 
-int HandleMqttPuback(const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PubackVH&  p_vh);
+int HandleMqttPuback(const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PubackVH& p_vh);
 
 int HandleMqttUnsubscribe(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, const FixedHeader &fh,
                           std::shared_ptr<spdlog::logger>& lg, UnsubscribeVH&  p_vh, std::list<std::string> &topics_to_unsubscribe);

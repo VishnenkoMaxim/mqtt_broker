@@ -26,6 +26,18 @@ void MqttProtocolVersionErr::HandleError(Broker& broker, const int fd){
     WriteData(fd, data.get(), answer_size);
 }
 
+//unsupported_protocol_version
+MqttDuplicateIDErr::MqttDuplicateIDErr() : IMqttErrorHandler(mqtt_err::duplicate_client_id) {}
+
+void MqttDuplicateIDErr::HandleError(Broker& broker, const int fd){
+    broker.lg->error("Protocol version err");
+    uint32_t answer_size;
+    VariableHeader answer_vh{unique_ptr<IVariableHeader>(new ConnactVH(0, client_identifier_not_valid, MqttPropertyChain{}))};
+    auto data = CreateMqttPacket(mqtt_pack_type::CONNACK << 4, answer_vh, answer_size);
+
+    WriteData(fd, data.get(), answer_size);
+}
+
 //handle error
 MqttHandleErr::MqttHandleErr() : IMqttErrorHandler(mqtt_err::handle_error) {}
 

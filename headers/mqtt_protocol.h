@@ -131,7 +131,8 @@ namespace mqtt_protocol{
         mqtt_property_err,
         disconnect,
         handle_error,
-        protocol_version_err
+        protocol_version_err,
+        duplicate_client_id
     };
 
     class FixedHeader{

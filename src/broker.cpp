@@ -190,20 +190,21 @@ void Broker::ServerThread(){
 }
 
 Broker::Broker() : Commands(), current_clients(0), state(0), control_sock(-1), port(1883) {
-    AddHandler(new MqttConnectPacketHandler());
     AddHandler(new MqttPublishPacketHandler());
-    AddHandler(new MqttSubscribePacketHandler());
     AddHandler(new MqttPubAckPacketHandler());
-    AddHandler(new MqttDisconnectPacketHandler());
-    AddHandler(new MqttPingPacketHandler());
-    AddHandler(new MqttUnsubscribePacketHandler());
     AddHandler(new MqttPubRelPacketHandler());
     AddHandler(new MqttPubRecPacketHandler());
     AddHandler(new MqttPubCompPacketHandler());
+    AddHandler(new MqttPingPacketHandler());
+    AddHandler(new MqttSubscribePacketHandler());
+    AddHandler(new MqttDisconnectPacketHandler());
+    AddHandler(new MqttUnsubscribePacketHandler());
+    AddHandler(new MqttConnectPacketHandler());
 
     AddErrorHandler(make_shared<MqttDisconnectErr>());
     AddErrorHandler(make_shared<MqttProtocolVersionErr>());
     AddErrorHandler(make_shared<MqttHandleErr>());
+    AddErrorHandler(make_shared<MqttDuplicateIDErr>());
 }
 
 broker_err Broker::AddClient(int sock, const string &_ip){
@@ -492,6 +493,13 @@ pair<uint32_t, shared_ptr<uint8_t>> Broker::GetPacket(const string& client_id, b
         return make_pair(it->second.front().data_len, it->second.front().pData);
     }
     return make_pair(0, nullptr);
+}
+
+bool Broker::CheckClientID(const std::string& client_id) const noexcept {
+    for (const auto& it : clients){
+        if (it.second->GetID() == client_id) return true;
+    }
+    return false;
 }
 
 

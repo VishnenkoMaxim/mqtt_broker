@@ -3,7 +3,7 @@
 using namespace spdlog;
 using namespace std;
 
-int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg){
+int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, Broker *broker){
     ConnectVH con_vh;
     uint32_t offset = 0;
 
@@ -39,12 +39,15 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     uint8_t id_len;
     auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
     if (id != nullptr){
+        if (broker->CheckClientID(id->GetString()) == true){
+            lg->warn("[{}] client sent already existing id client", pClient->GetIP());
+            return mqtt_err::duplicate_client_id;
+        }
         pClient->SetID(id->GetString());
-        lg->debug("id: {}", pClient->GetID());
+        lg->debug("[{}] ID: {}", pClient->GetIP(), pClient->GetID());
     } else {
-        lg->info("No ClientID provided");
         pClient->SetID(GenRandom(23));
-        lg->info("Create new ID:{}", pClient->GetID());
+        lg->info("[{}] No ClientID provided, create new ID:{}", pClient->GetIP(), pClient->GetID());
     }
 
     if (id_len) offset += id_len;
