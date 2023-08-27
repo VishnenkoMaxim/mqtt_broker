@@ -13,6 +13,9 @@
 
 #include "functions.h"
 
+//mqtt flags
+#define DUP_FLAG    0x08;
+
 namespace mqtt_protocol{
     //MQTT Control Packet types
     namespace mqtt_pack_type {

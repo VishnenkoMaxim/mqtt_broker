@@ -412,12 +412,15 @@ int Broker::NotifyClients(MqttTopic& topic){
             else topic.SetPacketID(it.second->GenPacketID());
             lg->debug("Add topic to send :{} QoS:{} packet_id:{}", topic_name_str, topic.GetQoS(), topic.GetID()); lg->flush();
 
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
             uint32_t answer_size;
+            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
             shared_ptr<uint8_t> data = CreateMqttPacket(PUBLISH << 4 | topic.GetQoS() << 1, answer_vh, topic.GetPtr(), answer_size);
 
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
-                if (!CheckIfMoreMessages(it.second->GetID())) AddCommand(it.first, tuple{answer_size, data});
+                if (!CheckIfMoreMessages(it.second->GetID())){
+                    AddCommand(it.first, tuple{answer_size, data});
+                }
+                *data.get() |= DUP_FLAG;
                 AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
             } else {
                 AddCommand(it.first, tuple{answer_size, data});
@@ -441,7 +444,10 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     lg->debug("Add topic to send :{}", topic.GetName()); lg->flush();
 
     if (topic.GetQoS() > mqtt_QoS::QoS_0){
-        if (!CheckIfMoreMessages(pClient->GetID())) AddCommand(fd, tuple{answer_size, data});
+        if (!CheckIfMoreMessages(pClient->GetID())) {
+            AddCommand(fd, tuple{answer_size, data});
+        }
+        *data.get() |= DUP_FLAG;
         AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
     } else AddCommand(fd, tuple{answer_size, data});
 

@@ -64,7 +64,10 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
         VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
         auto data_packet = CreateMqttPacket(PUBREC << 4, answer_vh, answer_size);
 
-        if (!broker->CheckIfMoreMessages(pClient->GetID())) broker->AddCommand(fd, tuple{answer_size, data_packet});
+        if (!broker->CheckIfMoreMessages(pClient->GetID())){
+            broker->AddCommand(fd, tuple{answer_size, data_packet});
+        }
+        *data_packet.get() |= DUP_FLAG;
         broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
     }
     auto topic = MqttTopic(f_header.QoS(), vh.packet_id, vh.topic_name.GetString(), pMessage);
