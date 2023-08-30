@@ -14,7 +14,8 @@
 #include "functions.h"
 
 //mqtt flags
-#define DUP_FLAG    0x08;
+#define RETAIN_FLAG     0x01;
+#define DUP_FLAG        0x08;
 
 namespace mqtt_protocol{
     //MQTT Control Packet types
@@ -140,6 +141,8 @@ namespace mqtt_protocol{
 
     class FixedHeader{
     public:
+        friend class FHBuilder;
+
         uint8_t first;
         uint32_t remaining_len;
 
@@ -156,8 +159,23 @@ namespace mqtt_protocol{
 
         void SetRemainingLen(uint32_t _len);
         void Serialize(uint8_t* dst_buf, uint32_t &offset);
-        [[nodiscard]] uint32_t Size() const;
+        [[nodiscard]] uint32_t Size() const noexcept;
+
+        [[nodiscard]] uint8_t Get() const noexcept;
     };
+
+    class FHBuilder{
+    public:
+        FHBuilder& PacketType(const uint8_t type);
+        FHBuilder& WithDup();
+        FHBuilder& WithQoS(const uint8_t qos);
+        FHBuilder& WithRetain();
+
+        uint8_t Build();
+    private:
+        FixedHeader header;
+    };
+
 
     class MqttStringEntity;
 

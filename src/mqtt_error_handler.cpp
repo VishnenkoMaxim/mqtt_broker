@@ -21,7 +21,7 @@ void MqttProtocolVersionErr::HandleError(Broker& broker, const int fd){
     broker.lg->error("Protocol version err");
     uint32_t answer_size;
     VariableHeader answer_vh{unique_ptr<IVariableHeader>(new ConnactVH(0, unsupported_protocol_version, MqttPropertyChain{}))};
-    auto data = CreateMqttPacket(mqtt_pack_type::CONNACK << 4, answer_vh, answer_size);
+    auto data = CreateMqttPacket(FHBuilder().PacketType(mqtt_pack_type::CONNACK).Build(), answer_vh, answer_size);
 
     WriteData(fd, data.get(), answer_size);
 }
@@ -33,7 +33,7 @@ void MqttDuplicateIDErr::HandleError(Broker& broker, const int fd){
     broker.lg->error("Protocol version err");
     uint32_t answer_size;
     VariableHeader answer_vh{unique_ptr<IVariableHeader>(new ConnactVH(0, client_identifier_not_valid, MqttPropertyChain{}))};
-    auto data = CreateMqttPacket(mqtt_pack_type::CONNACK << 4, answer_vh, answer_size);
+    auto data = CreateMqttPacket(FHBuilder().PacketType(mqtt_pack_type::CONNACK).Build(), answer_vh, answer_size);
 
     WriteData(fd, data.get(), answer_size);
 }

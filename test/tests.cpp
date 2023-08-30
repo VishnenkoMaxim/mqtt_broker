@@ -9,12 +9,14 @@
 #include "command.h"
 
 using namespace std;
+using namespace mqtt_protocol;
+using namespace mqtt_pack_type;
 
 TEST(BasicTests, Test_1){
-    int err = 0;
+    cfg_err err;
     ServerCfgData cfg_data = ReadConfig(DEFAULT_CFG_FILE, err);
 
-    EXPECT_EQ(err, 0);
+    EXPECT_EQ(err, cfg_err::ok);
     EXPECT_EQ(cfg_data.log_max_size, 10485760);
     EXPECT_EQ(cfg_data.log_max_files, 5);
     EXPECT_EQ(cfg_data.log_file_path, "/home/logs/mqtt_broker.log");

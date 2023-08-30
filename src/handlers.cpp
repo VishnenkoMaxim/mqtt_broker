@@ -32,7 +32,8 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     if (create_status != mqtt_err::ok){
         lg->error("Read properties error!");
         return create_status;
-    }
+    } else lg->debug("[{}] Property count: {}",pClient->GetIP(), pClient->conn_properties.Count());
+
     offset += property_size;
 
     //read ClientID
@@ -48,6 +49,7 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     } else {
         pClient->SetID(GenRandom(23));
         lg->info("[{}] No ClientID provided, create new ID:{}", pClient->GetIP(), pClient->GetID());
+        pClient->SetRandomID();
     }
 
     if (id_len) offset += id_len;

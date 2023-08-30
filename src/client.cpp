@@ -39,6 +39,10 @@ bool Client::isCleanFlag() const {
     return flags & 0x2;
 }
 
+bool Client::isRandomID() const {
+    return id_was_random_generated;
+}
+
 void Client::SetID(const string& _id){
     client_id = _id;
 }
@@ -89,4 +93,8 @@ uint16_t Client::GenPacketID(){
 
 uint8_t Client::DelSubscription(const string &_topic_name){
     return subscribed_topics.erase(_topic_name);
+}
+
+void Client::SetRandomID(){
+    id_was_random_generated = true;
 }

@@ -15,6 +15,7 @@ private:
     uint16_t alive;
     time_t time_last_packet;
     uint16_t packet_id_gen;
+    bool id_was_random_generated = false;
 
 public:
     explicit Client(std::string _ip);
@@ -37,6 +38,7 @@ public:
     uint8_t WillQoSFlag() const;
     bool isWillFlag() const;
     bool isCleanFlag() const;
+    bool isRandomID() const;
 
     std::string GetID() const;
     std::string& GetIP();
@@ -46,6 +48,8 @@ public:
     std::unordered_map<std::string, uint8_t>::const_iterator CEnd();
 
     void SetPacketLastTime(time_t _cur_time);
+    void SetRandomID();
+
 
     ~Client(){
         //conn_properties.~MqttPropertyChain();

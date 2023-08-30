@@ -3,15 +3,8 @@
 using namespace mqtt_protocol;
 using namespace mqtt_pack_type;
 
-FixedHeader::FixedHeader() noexcept{
-    first = 0;
-    remaining_len = 0;
-}
-
-FixedHeader::FixedHeader(uint8_t _first) noexcept{
-    first = _first;
-    remaining_len = 0;
-}
+FixedHeader::FixedHeader() noexcept : first(0),remaining_len(0)  {}
+FixedHeader::FixedHeader(uint8_t _first) noexcept : first(_first), remaining_len(0){}
 
 [[nodiscard]] bool    FixedHeader::isDUP() const { return first & 0x08; }
 [[nodiscard]] uint8_t FixedHeader::QoS() const {return (first & 0x06) >> 1;}
@@ -46,6 +39,35 @@ void FixedHeader::Serialize(uint8_t* dst_buf, uint32_t &offset){
     offset += sizeof(first) + size;
 }
 
-uint32_t FixedHeader::Size() const{
+uint32_t FixedHeader::Size() const noexcept{
     return GetVarIntSize(remaining_len) + sizeof(first);
+}
+
+uint8_t FixedHeader::Get() const noexcept {
+    return first;
+}
+
+//------------------------------------------------------FHBuilder---------------------------
+FHBuilder& FHBuilder::PacketType(const uint8_t type){
+    header.first |= type << 4;
+    return *this;
+}
+
+FHBuilder& FHBuilder::WithDup(){
+    header.first |= DUP_FLAG;
+    return *this;
+}
+
+FHBuilder& FHBuilder::WithQoS(const uint8_t qos){
+    header.first |= qos << 1;
+    return *this;
+}
+
+FHBuilder& FHBuilder::WithRetain(){
+    header.first |= RETAIN_FLAG;
+    return *this;
+}
+
+uint8_t FHBuilder::Build(){
+    return header.Get();
 }

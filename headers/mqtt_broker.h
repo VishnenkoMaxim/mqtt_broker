@@ -54,7 +54,7 @@ enum class broker_err {
 enum broker_states : int {
     init,
     started,
-    wait
+    wait_state
 };
 
 class mqtt_packet{
