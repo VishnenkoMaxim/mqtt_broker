@@ -15,9 +15,11 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
             "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version,
             con_vh.conn_flags, con_vh.alive);
 
-    if (con_vh.version != MQTT_VERSION){
+    if (con_vh.version != MQTT_VERSION && con_vh.version != MQTT_VERSION_3){
         return mqtt_err::protocol_version_err;
     }
+
+    pClient->SetClientMQTTVersion(con_vh.version);
 
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);

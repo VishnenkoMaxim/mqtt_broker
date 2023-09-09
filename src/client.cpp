@@ -98,3 +98,11 @@ uint8_t Client::DelSubscription(const string &_topic_name){
 void Client::SetRandomID(){
     id_was_random_generated = true;
 }
+
+uint8_t Client::GetClientMQTTVersion() const noexcept{
+    return mqtt_version;
+}
+
+void Client::SetClientMQTTVersion(const uint8_t version) noexcept {
+    mqtt_version = version;
+}

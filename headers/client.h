@@ -16,6 +16,7 @@ private:
     time_t time_last_packet;
     uint16_t packet_id_gen;
     bool id_was_random_generated = false;
+    uint8_t mqtt_version;
 
 public:
     explicit Client(std::string _ip);
@@ -44,6 +45,8 @@ public:
     std::string& GetIP();
     time_t GetPacketLastTime() const;
     uint16_t GetAlive() const;
+    uint8_t GetClientMQTTVersion() const noexcept;
+    void SetClientMQTTVersion(const uint8_t version) noexcept;
     std::unordered_map<std::string, uint8_t>::const_iterator CFind(const std::string &_topic_name);
     std::unordered_map<std::string, uint8_t>::const_iterator CEnd();
 

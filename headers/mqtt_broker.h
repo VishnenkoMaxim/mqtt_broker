@@ -32,6 +32,7 @@
 
 #define _1MB_                1048576
 #define MQTT_VERSION        5
+#define MQTT_VERSION_3      4
 
 enum class cfg_err {
     ok,
