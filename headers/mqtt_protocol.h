@@ -17,6 +17,9 @@
 #define RETAIN_FLAG     0x01;
 #define DUP_FLAG        0x08;
 
+#define MQTT_VERSION_5      5
+#define MQTT_VERSION_3      4
+
 namespace mqtt_protocol{
     //MQTT Control Packet types
     namespace mqtt_pack_type {
@@ -512,6 +515,7 @@ namespace mqtt_protocol{
         SubscribeVH() : packet_id(0){};
 
         SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset);
+        SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset, const uint8_t version);
         SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain);
         SubscribeVH(const SubscribeVH &_vh);
         SubscribeVH(SubscribeVH &&_vh) noexcept;
@@ -642,6 +646,21 @@ namespace mqtt_protocol{
         void SetPacketID(uint16_t new_id);
         void SetQos(uint8_t _qos);
         void SetName(const std::string& _name);
+    };
+
+
+    class TypicalV3VH : public IVariableHeader{
+    public:
+        uint16_t packet_id;
+
+        TypicalV3VH() = default;
+        TypicalV3VH(uint16_t _packet_id);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~TypicalV3VH() override = default;
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

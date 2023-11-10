@@ -29,7 +29,7 @@ bool Client::isWillRetFlag() const {
 }
 
 uint8_t Client::WillQoSFlag() const {
-    return flags & 0x18 >> 3;
+    return (flags & 0x18) >> 3;
 }
 
 bool Client::isWillFlag() const {
@@ -88,7 +88,9 @@ bool Client::MyTopic(const string &_topic, uint8_t& options){
 }
 
 uint16_t Client::GenPacketID(){
-    return packet_id_gen++;
+    packet_id_gen++;
+    if (packet_id_gen == 0) packet_id_gen++;
+    return packet_id_gen;
 }
 
 uint8_t Client::DelSubscription(const string &_topic_name){

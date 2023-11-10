@@ -15,7 +15,7 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
             "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version,
             con_vh.conn_flags, con_vh.alive);
 
-    if (con_vh.version != MQTT_VERSION && con_vh.version != MQTT_VERSION_3){
+    if (con_vh.version != MQTT_VERSION_5 && con_vh.version != MQTT_VERSION_3){
         return mqtt_err::protocol_version_err;
     }
 
@@ -29,14 +29,16 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
                                             (pClient->isPwdFlag()) ? "PWDFlag " : "", (pClient->isUserNameFlag()) ? "USRNameFlag " : "");
 
     //read properties
-    uint32_t property_size;
-    int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
-    if (create_status != mqtt_err::ok){
-        lg->error("Read properties error!");
-        return create_status;
-    } else lg->debug("[{}] Property count: {}",pClient->GetIP(), pClient->conn_properties.Count());
+    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5) {
+        uint32_t property_size;
+        int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
+        if (create_status != mqtt_err::ok) {
+            lg->error("Read properties error!");
+            return create_status;
+        } else lg->debug("[{}] Property count: {}", pClient->GetIP(), pClient->conn_properties.Count());
 
-    offset += property_size;
+        offset += property_size;
+    }
 
     //read ClientID
     uint8_t id_len;
@@ -89,11 +91,23 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     return mqtt_err::ok;
 }
 
-int HandleMqttPublish(const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message){
+int HandleMqttPublish(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message){
     lg->debug("HandleMqttPublish");
     uint32_t offset = 0;
+    PublishVH p_vh;
 
-    PublishVH p_vh(fh.QoS(), buf, offset);
+    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5){
+        PublishVH tmp_vh(fh.QoS(), buf, offset);
+        p_vh = tmp_vh;
+    } else {
+        p_vh.topic_name = MqttStringEntity(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t));
+        offset = p_vh.topic_name.Size();
+        if (fh.QoS() > mqtt_QoS::QoS_0){
+            p_vh.packet_id = ConvertToHost2Bytes(buf.get() + offset);
+            offset += sizeof(p_vh.packet_id);
+        }
+    }
+
     lg->info("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
     vh = std::move(p_vh);
 
@@ -109,7 +123,7 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
 
-    vh = SubscribeVH(buf, offset);
+    vh = SubscribeVH(buf, offset, pClient->GetClientMQTTVersion());
 
     while(offset < fh.remaining_len){
         uint8_t options;

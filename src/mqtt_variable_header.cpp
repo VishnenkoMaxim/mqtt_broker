@@ -171,6 +171,18 @@ SubscribeVH::SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset){
     offset += property_size;
 }
 
+SubscribeVH::SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset, const uint8_t version){
+    offset = 0;
+    packet_id = ConvertToHost2Bytes(buf.get());
+    offset += sizeof(packet_id);
+
+    if (version == MQTT_VERSION_5){
+        uint32_t property_size;
+        p_chain.Create(buf.get() + offset, property_size);
+        offset += property_size;
+    }
+}
+
 SubscribeVH::SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain) : packet_id(_packet_id), p_chain(_p_chain){}
 SubscribeVH::SubscribeVH(const SubscribeVH &_vh) : packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
 SubscribeVH::SubscribeVH(SubscribeVH &&_vh) noexcept : packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
@@ -336,6 +348,33 @@ void UnsubAckVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     //todo
     (void)buf;
     (void) offset;
+}
+
+
+//---------------------------V3--------------------
+TypicalV3VH::TypicalV3VH(uint16_t _packet_id) : packet_id(_packet_id){}
+
+uint32_t TypicalV3VH::GetSize() const {
+    return sizeof(packet_id);
+}
+
+void TypicalV3VH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+    auto tmp = htons(packet_id);
+    memcpy(dst_buf, &tmp, sizeof(packet_id));
+    local_offset += sizeof(packet_id);
+    offset += local_offset;
+}
+
+void TypicalV3VH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+    uint32_t local_offset = 0;
+
+    memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
+    auto tmp = ntohs(packet_id);
+    packet_id = tmp;
+    local_offset += sizeof(packet_id);
+
+    offset += local_offset;
 }
 
 //---------------------------------VariableHeader-----------------------------------------------

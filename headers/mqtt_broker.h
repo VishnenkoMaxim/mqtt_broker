@@ -31,8 +31,6 @@
 #define CONTROL_SOCKET_NAME "/tmp/9Lq7BNBnBycd6nxy.socket"
 
 #define _1MB_                1048576
-#define MQTT_VERSION        5
-#define MQTT_VERSION_3      4
 
 enum class cfg_err {
     ok,
@@ -171,7 +169,7 @@ public:
 
 int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, Broker* broker);
 
-int HandleMqttPublish(const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PublishVH &vh, std::shared_ptr<MqttBinaryDataEntity> &message);
+int HandleMqttPublish(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, PublishVH &vh, std::shared_ptr<MqttBinaryDataEntity> &message);
 
 int HandleMqttSubscribe(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg,
                         SubscribeVH &vh, std::vector<uint8_t> &_reason_codes, std::list<std::pair<std::string, uint8_t>>& subscribe_topics);
