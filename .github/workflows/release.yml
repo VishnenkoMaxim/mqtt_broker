@@ -15,7 +15,7 @@ jobs:
         with:
           submodules: true
       - run: cmake -B ./build -S . -DPATCH_VERSION=${{ github.run_number }}
-      - run: cmake --build ./build --target package
+      - run: cmake --build ./build --target package -j 8
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
