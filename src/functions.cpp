@@ -3,15 +3,19 @@
 //
 #include <iostream>
 #include "mqtt_broker.h"
+#include <time.h>
+#include <sys/select.h>
 
 using namespace std;
+using namespace spdlog;
+using namespace libconfig;
 
 template <typename T>
 void PrintType [[maybe_unused]](T) {
     cout << __PRETTY_FUNCTION__ << endl;
 }
 
-ServerCfgData ReadConfig(const char *cfg_path, int &err){
+ServerCfgData ReadConfig(const char *cfg_path, cfg_err &err){
     Config cfg;
 
     try {
@@ -19,17 +23,19 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
     } catch(const FileIOException &fioex){
         std::cerr << "I/O error while reading file." << std::endl;
         err = cfg_err::bad_file;
-        return ServerCfgData();
+        return ServerCfgData{};
     }
 
     const Setting &root = cfg.getRoot();
     const Setting &log_cfg = root["log_file"];
+    const Setting &broker_cfg = root["broker"];
 
     string path;
     int size(0);
     int max_file(0);
     int log_level;
     int port;
+    string control_socket_path;
 
     if (!log_cfg.lookupValue("path", path)) {
         std::cerr << "path error" << std::endl;
@@ -39,7 +45,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
 
     if (!log_cfg.lookupValue("size", size)) {
         std::cerr << "Size arg error. Set default" << std::endl;
-        size = 10*_1MB;
+        size = 10*_1MB_;
     }
 
     if (!log_cfg.lookupValue("max_files", max_file)) {
@@ -47,7 +53,7 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
         max_file = 3;
     }
 
-    if (!log_cfg.lookupValue("port", port)) {
+    if (!broker_cfg.lookupValue("port", port)) {
         std::cerr << "port arg error. Set default (" << DEFAULT_PORT << ")" << std::endl;
         port = DEFAULT_PORT;
     }
@@ -57,11 +63,16 @@ ServerCfgData ReadConfig(const char *cfg_path, int &err){
         log_level = level::level_enum::info;
     }
 
+    if (!broker_cfg.lookupValue("control_socket", control_socket_path)){
+        std::cerr << "control socket path error. Set default" << std::endl;
+        control_socket_path = CONTROL_SOCKET_NAME;
+    }
+
     err = cfg_err::ok;
-    return (ServerCfgData{path, size, max_file, port, log_level});
+    return (ServerCfgData{path, size, max_file, port, log_level, control_socket_path});
 }
 
-void SetLogLevel(shared_ptr<logger> lg, int _level) noexcept {
+void SetLogLevel(const shared_ptr<logger>& lg, int _level) noexcept {
     switch(_level){
         case 0 : {lg->set_level(spdlog::level::trace);} break;
         case 1 : {lg->set_level(spdlog::level::debug);} break;
@@ -92,14 +103,13 @@ int ReadData(int fd, uint8_t* data, int size, unsigned int timeout){
     fd_set rfd;
 
     if( fd < 0 || !data || size <= 0 ) return 0;
-    if(size <= 0) return 0;
     for(co = 0; ;){
         tv.tv_sec = timeout;
         tv.tv_usec = 0;
         FD_ZERO(&rfd);
         FD_SET( fd, &rfd );
         //usleep(10);
-        rval = select(fd + 1, &rfd, 0, 0, &tv);
+        rval = select(fd + 1, &rfd, nullptr, nullptr, &tv);
         if( rval < 0 ) return -1;
         if (rval == 0) return co;
 
@@ -122,4 +132,27 @@ uint32_t ConvertToHost4Bytes(const uint8_t* buf){
     uint32_t val;
     memcpy(&val, buf, sizeof(val));
     return ntohl(val);
+}
+
+string GenRandom(const uint8_t len) {
+    static const char alphanum[] =
+            "0123456789"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+    std::string tmp_s;
+    tmp_s.reserve(len);
+
+    for (int i = 0; i < len; ++i) {
+        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    return tmp_s;
+}
+
+template <class Type>
+ostream& operator << (ostream &os, const vector<Type> &_vec){
+    for(auto &it : _vec){
+        os << it << " ";
+    }
+    os << endl;
+    return os;
 }
