@@ -1,4 +1,6 @@
 #pragma once
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 
 #include <strings.h>
 #include <stdlib.h>
@@ -163,7 +165,6 @@ namespace mqtt_protocol{
         void SetRemainingLen(uint32_t _len);
         void Serialize(uint8_t* dst_buf, uint32_t &offset);
         [[nodiscard]] uint32_t Size() const noexcept;
-
         [[nodiscard]] uint8_t Get() const noexcept;
     };
 
@@ -178,7 +179,6 @@ namespace mqtt_protocol{
     private:
         FixedHeader header;
     };
-
 
     class MqttStringEntity;
 
@@ -375,8 +375,6 @@ namespace mqtt_protocol{
         MqttProperty() = delete;
 
         MqttProperty(uint8_t _id, std::shared_ptr<MqttEntity> entity);
-        //explicit MqttProperty(const MqttProperty& _property);
-        //MqttProperty& operator = (const MqttProperty& _property);
 
         [[nodiscard]] uint8_t     GetId() const;
         uint8_t*    GetData() override;
@@ -389,7 +387,7 @@ namespace mqtt_protocol{
         void        Serialize(uint8_t* buf_dst, uint32_t &offset) override;
 
         ~MqttProperty() override {
-            property->~MqttEntity();
+            //property->~MqttEntity();
         };
     };
 
@@ -661,6 +659,23 @@ namespace mqtt_protocol{
         void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
 
         ~TypicalV3VH() override = default;
+    };
+
+	class PublishV3VH: public IVariableHeader{
+    public:
+        MqttStringEntity topic_name;
+        uint16_t packet_id;
+        
+        PublishV3VH();
+        PublishV3VH(bool is_packet_id_present, const std::shared_ptr<uint8_t>& buf, uint32_t &offset);
+        PublishV3VH(MqttStringEntity &_topic_name, uint16_t _packet_id);
+        PublishV3VH(MqttStringEntity &&_topic_name, uint16_t _packet_id);
+
+        [[nodiscard]] uint32_t GetSize() const override;
+        void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+        void ReadFromBuf(const uint8_t* buf, uint32_t &offset) override;
+
+        ~PublishV3VH() override = default;
     };
 
     [[nodiscard]] uint8_t ReadVariableInt(int fd, int &value);

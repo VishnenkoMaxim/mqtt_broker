@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/ioctl.h> 
 
 #include "mqtt_broker.h"
 
@@ -17,9 +18,10 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start Sender Thread {}", id);
 
-    while(true){
-        broker.Execute();
-        broker.lg->debug("Sender Thread {} executed", id);
+    while(true){      
+		broker.Execute();
+		broker.lg->trace("Sender Thread {} executed", id);  
+		broker.lg->flush(); 
     }
 }
 
@@ -32,7 +34,7 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
     map<int, string> clients_id_map;
 
     while(true){
-        //broker.lg->debug("QoSThread execute");
+        broker.lg->trace("QoSThread execute"); broker.lg->flush();
         if (!broker.postponed_events.empty()){
             clients_id_map.clear();
             lock.lock();
@@ -63,9 +65,9 @@ void Broker::ServerThread(){
     while(true){
         switch (broker.state){
             case broker_states::started : {
-                broker.lg->debug("state started");
+                broker.lg->debug("state started"); broker.lg->flush();
                 vec_fds.clear();
-                vec_fds.reserve(10);
+                vec_fds.reserve(50);
                 uint32_t client_num = broker.GetClientCount();
                 if (client_num == 0){
                     broker.SetState(broker_states::init);
@@ -85,12 +87,12 @@ void Broker::ServerThread(){
             }; break;
 
             case broker_states::wait_state : {
-                //broker.lg->debug("state wait"); broker.lg->flush();
+                broker.lg->trace("state wait"); broker.lg->flush();
                 int ready;
                 uint32_t client_num = broker.GetClientCount() + 1;
                 ready = poll(vec_fds.data(), client_num, 1000);
                 if (ready == -1){
-                    broker.lg->critical("poll error");
+                    broker.lg->critical("poll error"); broker.lg->flush();
                     sleep(1);
                     broker.SetState(broker_states::started);
                 }
@@ -163,7 +165,7 @@ void Broker::ServerThread(){
                         int fd = vec_fds[i].fd;
                         if (fd != broker.control_sock){
                             auto pClient = broker.clients[fd];
-                            if (current_time - pClient->GetPacketLastTime() >= pClient->GetAlive() + 5){
+                            if (current_time - pClient->GetPacketLastTime() >= uint32_t (pClient->GetAlive() + 5)){
                                 broker.lg->warn("[{}] time out, disconnect", pClient->GetIP());
                                 VariableHeader answer_vh{shared_ptr<IVariableHeader>(new DisconnectVH(keep_alive_timeout, MqttPropertyChain()))};
                                 uint32_t answer_size;
@@ -173,13 +175,16 @@ void Broker::ServerThread(){
                                 if (pClient->isWillFlag()){
                                     broker.NotifyClients(pClient->will_topic);
                                 }
-                            }
+                            }  
                         }
                     }
                 }
                 if (!fd_to_delete.empty()){
+					broker.lg->warn("close connections"); broker.lg->flush();
                     broker.SetState(broker_states::started);
                     for(const auto &it : fd_to_delete){
+						auto pClient = broker.clients[it];
+						broker.lg->warn("close connection fd:{} ID:{}", it, pClient->GetID()); broker.lg->flush();
                         broker.CloseConnection(it);
                     }
                 }
@@ -292,26 +297,28 @@ int Broker::InitSocket(){
     int sock_fd;
     struct sockaddr_in serv_addr;
 
-    sock_fd = socket(AF_INET, SOCK_STREAM | O_NONBLOCK, 0);
+    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd < 0) {
-        lg->error("Error opening socket: {}", strerror(errno));
+        lg->error("Error opening socket: {}", strerror(errno));lg->flush();
         return 0;
     }
+	int on = 1;
+	ioctl(sock_fd, FIONBIO, &on);
+
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(port);
     while(true) {
         if (bind(sock_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-            lg->error("Error binding socket: {}", strerror(errno));
-            lg->flush();
+            lg->error("Error binding socket: {}", strerror(errno)); lg->flush();
             sleep(5);
             continue;
         }
         break;
     }
     if (listen(sock_fd, 40) < 0){
-        lg->error("Error listening socket: {}", strerror(errno));
+        lg->error("Error listening socket: {}", strerror(errno)); lg->flush();
         return 0;
     }
     main_socket = sock_fd;
@@ -325,11 +332,11 @@ int Broker::WaitForClient(char* _ip){
 
     struct sockaddr_in cli_addr;
     socklen_t c_len = sizeof(cli_addr);
-
     if (poll(&fds, 1, -1) == -1) {
         lg->error("Error poll(): {}", strerror(errno));
         return -1;
     }
+	
     int newsock_fd = accept(fds.fd, (struct sockaddr *) &cli_addr, &c_len);
     if (newsock_fd < 0){
         lg->error("Error accept socket: {}", strerror(errno));
@@ -346,9 +353,8 @@ void Broker::SetPort(int _port) noexcept {
 broker_err Broker::SendCommand(const char *buf, const int buf_size) {
     struct sockaddr_un addr;
     int ret;
-    int data_socket;
 
-    data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    int data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (data_socket == -1) {
         lg->error("Error opening socket: {}", strerror(errno));
     }
@@ -373,14 +379,15 @@ broker_err Broker::SendCommand(const char *buf, const int buf_size) {
 }
 
 void    Broker::InitLogger(const string & _path, const size_t  _size, const size_t _max_files, const int _level){
-    lg = spdlog::rotating_logger_mt("broker", _path, _size, _max_files);
+    //lg = spdlog::rotating_logger_mt("broker", _path, _size, _max_files);
+    lg = spdlog::basic_logger_mt<spdlog::async_factory>("broker", _path);
     SetLogLevel(lg, _level);
 }
 
 broker_err Broker::ReadFixedHeader(const int fd, FixedHeader &f_hed){
-    size_t ret = read(fd, &f_hed.first, 1);
+    int ret = read(fd, &f_hed.first, 1);
     if (ret != 1) {
-        lg->error("read error: {}", ret);
+        lg->error("read error: {} {}", ret, strerror(errno));
         return broker_err::read_err;
     }
     ret = ReadVariableInt(fd, reinterpret_cast<int &>(f_hed.remaining_len));
@@ -414,21 +421,37 @@ int Broker::NotifyClients(MqttTopic& topic){
             lg->debug("Add topic to send :{} QoS:{} packet_id:{}", topic_name_str, topic.GetQoS(), topic.GetID()); lg->flush();
 
             uint32_t answer_size;
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
-
-            if (topic.GetQoS() > mqtt_QoS::QoS_0){
-                if (!CheckIfMoreMessages(it.second->GetID())){
-                    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
-                    AddCommand(it.first, tuple{answer_size, data});
-                } else {
-                    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
-                    AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
-                }
-            } else {
-                auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
-                AddCommand(it.first, tuple{answer_size, data});
-            }
-            lg->info("[{}] {} ------>", it.second->GetIP(), GetControlPacketTypeName(PUBLISH));
+			
+			if (it.second->GetClientMQTTVersion() == MQTT_VERSION_5){
+				VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
+				if (topic.GetQoS() > mqtt_QoS::QoS_0){
+				    if (!CheckIfMoreMessages(it.second->GetID())){
+				        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+				        AddCommand(it.first, tuple{answer_size, data});
+				    } else {
+				        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
+				        AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
+				    }
+				} else {
+				    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+				    AddCommand(it.first, tuple{answer_size, data});
+				}
+			} else {
+				VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishV3VH(MqttStringEntity(topic.GetName()), topic.GetID()))};
+				if (topic.GetQoS() > mqtt_QoS::QoS_0){
+				    if (!CheckIfMoreMessages(it.second->GetID())){
+				        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+				        AddCommand(it.first, tuple{answer_size, data});
+				    } else {
+				        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
+				        AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
+				    }
+				} else {
+				    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+				    AddCommand(it.first, tuple{answer_size, data});
+				}			
+			}
+            lg->info("[{}] fd:{} {} ------>", it.second->GetIP(), it.first, GetControlPacketTypeName(PUBLISH));
         }
     }
     return mqtt_err::ok;
@@ -441,25 +464,43 @@ int Broker::NotifyClient(const int fd, MqttTopic& topic){
     if (topic.GetQoS() == mqtt_QoS::QoS_0) topic.SetPacketID(0);
     else topic.SetPacketID(pClient->GenPacketID());
 
-    lg->debug("NotifyClient(): {} {}", topic.GetID(), topic.GetQoS()); lg->flush();
-    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
-    uint32_t answer_size;
-    lg->debug("Add topic to send :{}", topic.GetName()); lg->flush();
+    //lg->debug("NotifyClient(): {} {}", topic.GetID(), topic.GetQoS()); lg->flush();
 
-    if (topic.GetQoS() > mqtt_QoS::QoS_0){
-        if (!CheckIfMoreMessages(pClient->GetID())) {
-            auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
-            AddCommand(fd, tuple{answer_size, data});
-        } else {
-            auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
-            AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
-        }
-    } else {
-        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
-        AddCommand(fd, tuple{answer_size, data});
-    }
-    lg->info("[{}] {} ------>", pClient->GetIP(), GetControlPacketTypeName(PUBLISH));
+	if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5){
+		VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
+		uint32_t answer_size;
+		lg->debug("Add topic to send :{}", topic.GetName()); lg->flush();
 
+		if (topic.GetQoS() > mqtt_QoS::QoS_0){
+		    if (!CheckIfMoreMessages(pClient->GetID())) {
+		        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+		        AddCommand(fd, tuple{answer_size, data});
+		    } else {
+		        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
+		        AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
+		    }
+		} else {
+		    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+		    AddCommand(fd, tuple{answer_size, data});
+		}
+	} else {
+		VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishV3VH(MqttStringEntity(topic.GetName()), topic.GetID()))};
+		uint32_t answer_size;
+		lg->debug("Add topic to send :{}", topic.GetName()); lg->flush();	
+		if (topic.GetQoS() > mqtt_QoS::QoS_0){
+		    if (!CheckIfMoreMessages(pClient->GetID())) {
+		        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+		        AddCommand(fd, tuple{answer_size, data});
+		    } else {
+		        auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
+		        AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
+		    }
+		} else {
+		    auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
+		    AddCommand(fd, tuple{answer_size, data});
+		}
+	}
+    lg->info("[{}] fd:{} {} ------>", pClient->GetIP(), fd, GetControlPacketTypeName(PUBLISH));
     return mqtt_err::ok;
 }
 
@@ -515,6 +556,13 @@ bool Broker::CheckClientID(const std::string& client_id) const noexcept {
         if (it.second->GetID() == client_id) return true;
     }
     return false;
+}
+
+int Broker::GetClientFd(const std::string& client_id) const noexcept {
+    for (const auto& it : clients){
+        if (it.second->GetID() == client_id) return it.first;
+    }
+    return -1;
 }
 
 

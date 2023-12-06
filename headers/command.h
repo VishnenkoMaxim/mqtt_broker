@@ -1,4 +1,6 @@
 #pragma once
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 
 #include <iostream>
 #include <memory>
@@ -20,7 +22,6 @@
 class Writer {
 public:
     Writer()= default;
-
     int Write(int fd, const std::shared_ptr<uint8_t>& buf, uint32_t buf_len);
 };
 

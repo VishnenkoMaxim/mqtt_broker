@@ -1,4 +1,6 @@
 #pragma once
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 
 #include <libconfig.h++>
 #include <string>
@@ -12,10 +14,13 @@
 #include <thread>
 #include <chrono>
 #include <unordered_set>
+#include <signal.h>
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/fmt/bin_to_hex.h"
+#include "spdlog/async.h"
+#include "spdlog/sinks/basic_file_sink.h"
 
 #include "functions.h"
 #include "mqtt_protocol.h"
@@ -104,7 +109,6 @@ private:
     broker_err SendCommand(const char *buf, int buf_size);
     broker_err ReadFixedHeader(int fd, FixedHeader &f_hed);
     std::string GetControlPacketTypeName(uint8_t _packet);
-    void CloseConnection(int fd);
 
     int NotifyClients(MqttTopic& topic);
     int NotifyClient(int fd, MqttTopic& topic);
@@ -165,6 +169,8 @@ public:
 
     void Start();
     bool CheckClientID(const std::string& client_id) const noexcept;
+	int  GetClientFd(const std::string& client_id) const noexcept;
+	void CloseConnection(int fd);
 };
 
 int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, Broker* broker);

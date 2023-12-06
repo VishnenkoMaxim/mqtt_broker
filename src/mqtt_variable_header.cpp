@@ -7,7 +7,7 @@ using namespace std;
 
 ConnectVH::ConnectVH() : prot_name_len(0), version(0), conn_flags(0), alive(0){
     memset(name, 0, 4);
-};
+}
 
 ConnectVH::ConnectVH(uint8_t _flags, uint16_t _alive) : prot_name_len(4), version(5), conn_flags(_flags), alive(_alive)  {
     memset(name, 0, 4);
@@ -20,7 +20,7 @@ uint32_t ConnectVH::GetSize() const {
 
 void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
-    auto tmp = htons(prot_name_len);
+    uint16_t tmp = htons(prot_name_len);
     memcpy(dst_buf + local_offset, &tmp, sizeof(prot_name_len));
     local_offset += sizeof(prot_name_len);
     memcpy(dst_buf + local_offset, name, 4 + sizeof(version) + sizeof(conn_flags));
@@ -34,7 +34,7 @@ void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
 void ConnectVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t local_offset = 0;
     memcpy(&prot_name_len, buf + local_offset, sizeof(prot_name_len));
-    auto tmp = ntohs(prot_name_len);
+    uint16_t tmp = ntohs(prot_name_len);
     prot_name_len = tmp;
     local_offset += sizeof(prot_name_len);
     memcpy(name, buf + local_offset, 4);
@@ -144,9 +144,10 @@ uint32_t PublishVH::GetSize() const {
 void PublishVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
     topic_name.Serialize(dst_buf, local_offset);
+
     offset += local_offset;
     if (packet_id != 0){
-        auto tmp = ntohs(packet_id);
+        uint16_t tmp = ntohs(packet_id);
         memcpy(dst_buf + local_offset, &tmp, sizeof(tmp));
         offset += sizeof(tmp);
         local_offset += sizeof(tmp);
@@ -207,7 +208,7 @@ void SubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
 
     if (packet_id != 0){
-        auto tmp = ntohs(packet_id);
+        uint16_t tmp = ntohs(packet_id);
         memcpy(dst_buf, &tmp, sizeof(tmp));
         offset += sizeof(tmp);
         local_offset += sizeof(tmp);
@@ -220,7 +221,7 @@ void SubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     p_chain.Clear();
     uint32_t local_offset = 0;
     memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
-    auto tmp = ntohs(packet_id);
+    uint16_t tmp = ntohs(packet_id);
     packet_id = tmp;
     local_offset += sizeof(packet_id);
     offset += local_offset;
@@ -264,7 +265,7 @@ PubackVH::PubackVH(uint16_t _packet_id, uint8_t _reason_code, MqttPropertyChain 
 
 void PubackVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
-    auto tmp = htons(packet_id);
+    uint16_t tmp = htons(packet_id);
     memcpy(dst_buf, &tmp, sizeof(packet_id));
     local_offset += sizeof(packet_id);
 
@@ -280,7 +281,7 @@ void PubackVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t local_offset = 0;
 
     memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
-    auto tmp = ntohs(packet_id);
+    uint16_t tmp = ntohs(packet_id);
     packet_id = tmp;
     local_offset += sizeof(packet_id);
 
@@ -288,7 +289,7 @@ void PubackVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
 }
 
 //-----------------------------UnsubscribeVH---------------------------------
-UnsubscribeVH::UnsubscribeVH(uint16_t _packet_id, MqttPropertyChain _p_chain) : packet_id(_packet_id), p_chain(std::move(_p_chain)){};
+UnsubscribeVH::UnsubscribeVH(uint16_t _packet_id, MqttPropertyChain _p_chain) : packet_id(_packet_id), p_chain(std::move(_p_chain)){}
 
 [[nodiscard]] uint32_t UnsubscribeVH::GetSize() const{
     return sizeof(packet_id) + p_chain.GetSize() + GetVarIntSize(p_chain.GetSize());
@@ -296,7 +297,7 @@ UnsubscribeVH::UnsubscribeVH(uint16_t _packet_id, MqttPropertyChain _p_chain) : 
 
 void UnsubscribeVH::Serialize(uint8_t* dst_buf, uint32_t &offset) {
     uint32_t local_offset = 0;
-    auto tmp = htons(packet_id);
+    uint16_t tmp = htons(packet_id);
     memcpy(dst_buf, &tmp, sizeof(packet_id));
     local_offset += sizeof(packet_id);
 
@@ -309,7 +310,7 @@ void UnsubscribeVH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t local_offset = 0;
 
     memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
-    auto tmp = ntohs(packet_id);
+    uint16_t tmp = ntohs(packet_id);
     packet_id = tmp;
     local_offset += sizeof(packet_id);
     offset += local_offset;
@@ -331,7 +332,7 @@ UnsubAckVH::UnsubAckVH(uint16_t _packet_id, MqttPropertyChain _p_chain, vector<u
 
 void UnsubAckVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
-    auto tmp = htons(packet_id);
+    uint16_t tmp = htons(packet_id);
     memcpy(dst_buf, &tmp, sizeof(packet_id));
     local_offset += sizeof(packet_id);
 
@@ -360,7 +361,7 @@ uint32_t TypicalV3VH::GetSize() const {
 
 void TypicalV3VH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint32_t local_offset = 0;
-    auto tmp = htons(packet_id);
+    uint16_t tmp = htons(packet_id);
     memcpy(dst_buf, &tmp, sizeof(packet_id));
     local_offset += sizeof(packet_id);
     offset += local_offset;
@@ -370,11 +371,45 @@ void TypicalV3VH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
     uint32_t local_offset = 0;
 
     memcpy(&packet_id, buf + local_offset, sizeof(packet_id));
-    auto tmp = ntohs(packet_id);
+    uint16_t tmp = ntohs(packet_id);
     packet_id = tmp;
     local_offset += sizeof(packet_id);
 
     offset += local_offset;
+}
+
+PublishV3VH::PublishV3VH() : topic_name(""), packet_id(0){}
+
+PublishV3VH::PublishV3VH(bool is_packet_id_present, const std::shared_ptr<uint8_t>& buf, uint32_t &offset) : topic_name(ConvertToHost2Bytes(buf.get()), buf.get() + 																												sizeof(uint16_t)), packet_id(0){
+	offset = topic_name.Size();
+    if (is_packet_id_present){
+        packet_id = ConvertToHost2Bytes(buf.get() + offset);
+        offset += sizeof(packet_id);
+    }
+}
+
+PublishV3VH::PublishV3VH(MqttStringEntity &_topic_name, uint16_t _packet_id) : topic_name(_topic_name), packet_id(_packet_id){}
+PublishV3VH::PublishV3VH(MqttStringEntity &&_topic_name, uint16_t _packet_id) : topic_name(std::move(_topic_name)), packet_id(_packet_id){}
+
+uint32_t PublishV3VH::GetSize() const {
+	return topic_name.Size() + sizeof(packet_id);
+}
+
+void PublishV3VH::Serialize(uint8_t* dst_buf, uint32_t &offset){
+ 	uint32_t local_offset = 0;
+    topic_name.Serialize(dst_buf, local_offset);
+    offset += local_offset;
+    if (packet_id != 0){
+        uint16_t tmp = ntohs(packet_id);
+        memcpy(dst_buf + local_offset, &tmp, sizeof(tmp));
+        offset += sizeof(tmp);
+    }
+}
+
+void PublishV3VH::ReadFromBuf(const uint8_t* buf, uint32_t &offset){
+	//todo
+    (void) buf;
+    (void) offset;
 }
 
 //---------------------------------VariableHeader-----------------------------------------------

@@ -6,28 +6,22 @@ using namespace std;
 int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, Broker *broker){
     ConnectVH con_vh;
     uint32_t offset = 0;
-
     con_vh.ReadFromBuf(buf.get(), offset);
 
     char name_tmp[5] = "";
     memcpy(name_tmp, con_vh.name, 4);
-    lg->debug(
-            "Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version,
-            con_vh.conn_flags, con_vh.alive);
+    lg->debug("Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
 
     if (con_vh.version != MQTT_VERSION_5 && con_vh.version != MQTT_VERSION_3){
         return mqtt_err::protocol_version_err;
     }
 
     pClient->SetClientMQTTVersion(con_vh.version);
-
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
-
     lg->debug("Connection flags:{}{}{}{}{}{}", (pClient->isCleanFlag()) ? "CleanStart " : "", (pClient->isWillFlag()) ? "WillFlag " : "",
                                             (pClient->WillQoSFlag()) ? "WillQoS " : "", (pClient->isWillRetFlag()) ? "WillRetainFlag " : "",
                                             (pClient->isPwdFlag()) ? "PWDFlag " : "", (pClient->isUserNameFlag()) ? "USRNameFlag " : "");
-
     //read properties
     if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5) {
         uint32_t property_size;
@@ -36,7 +30,6 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
             lg->error("Read properties error!");
             return create_status;
         } else lg->debug("[{}] Property count: {}", pClient->GetIP(), pClient->conn_properties.Count());
-
         offset += property_size;
     }
 
@@ -44,9 +37,11 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     uint8_t id_len;
     auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
     if (id != nullptr){
-        if (broker->CheckClientID(id->GetString()) == true){
-            lg->warn("[{}] client sent already existing id client", pClient->GetIP());
-            return mqtt_err::duplicate_client_id;
+		//auto check_fd = broker->GetClientFd(id->GetString());	
+		if (broker->CheckClientID(id->GetString()) == true){        
+    		lg->warn("[{}] client sent already existing id client {}", pClient->GetIP(), id->GetString());
+			//broker->CloseConnection(check_fd);            
+			return mqtt_err::duplicate_client_id;
         }
         pClient->SetID(id->GetString());
         lg->debug("[{}] ID: {}", pClient->GetIP(), pClient->GetID());
@@ -122,7 +117,6 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<pair<string, uint8_t>>& subscribe_topics){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
-
     vh = SubscribeVH(buf, offset, pClient->GetClientMQTTVersion());
 
     while(offset < fh.remaining_len){

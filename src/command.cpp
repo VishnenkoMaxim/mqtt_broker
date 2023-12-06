@@ -6,11 +6,11 @@ int Writer::Write(const int fd, const shared_ptr<uint8_t>& buf, const uint32_t b
     return WriteData(fd, buf.get(), buf_len);
 }
 
-void FdWriteCommand::Execute() {
-    uint32_t len;
-    shared_ptr<uint8_t> ptr;
-    tie(len, ptr) = cmd;
-    stream->Write(fd, ptr, len);
+void FdWriteCommand::Execute() {   
+	uint32_t len;
+    shared_ptr<uint8_t> ptr = nullptr;
+    tie(len, ptr) = cmd;   
+	stream->Write(fd, ptr, len);
     ptr.reset();
     count--;
 }

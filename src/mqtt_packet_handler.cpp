@@ -17,6 +17,11 @@ MqttConnectPacketHandler::MqttConnectPacketHandler() : IMqttPacketHandler(mqtt_p
 int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, const int fd){
     broker->lg->debug("handleConnect");
     auto pClient = broker->clients[fd];
+	
+	if (pClient == nullptr){
+		broker->lg->error("handleConnect error, pClient is nullptr"); 
+		return 	mqtt_err::handle_error;
+	}
 
     int handle_stat = HandleMqttConnect(pClient, data, broker->lg, broker);
     if (handle_stat != mqtt_err::ok){
@@ -178,10 +183,11 @@ int MqttDisconnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader
 MqttPingPacketHandler::MqttPingPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PINGREQ){}
 
 int MqttPingPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, [[maybe_unused]] const shared_ptr<uint8_t> &data, Broker *broker, int fd){
-    broker->lg->info("[{}] PINGREQ", broker->clients[fd]->GetIP());
+	auto pClient = broker->clients[fd];   
+	broker->lg->info("[{}] PINGREQ", pClient->GetIP());
     uint32_t answer_size;
     broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PINGRESP).Build(), answer_size)});
-    broker->lg->info("[{}] {} ------>", broker->clients[fd]->GetIP(), broker->GetControlPacketTypeName(PINGRESP));
+    broker->lg->info("[{}] {} ------>", pClient->GetIP(), broker->GetControlPacketTypeName(PINGRESP));
     return mqtt_err::ok;
 }
 
@@ -254,7 +260,7 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
 }
 
 //pubrec
-MqttPubRecPacketHandler::MqttPubRecPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBREC) {};
+MqttPubRecPacketHandler::MqttPubRecPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBREC) {}
 
 int MqttPubRecPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     TypicalVH t_vh;
@@ -277,7 +283,7 @@ int MqttPubRecPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
 }
 
 //pubcomp
-MqttPubCompPacketHandler::MqttPubCompPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBCOMP) {};
+MqttPubCompPacketHandler::MqttPubCompPacketHandler() : IMqttPacketHandler(mqtt_pack_type::PUBCOMP) {}
 
 int MqttPubCompPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_header, const shared_ptr<uint8_t> &data, Broker *broker, int fd){
     TypicalVH t_vh;
@@ -297,7 +303,6 @@ int MqttPubCompPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
     broker->lg->flush();
     return mqtt_err::ok;
 }
-
 
 //Handler
 void MqttPacketHandler::AddHandler(IMqttPacketHandler *handler){

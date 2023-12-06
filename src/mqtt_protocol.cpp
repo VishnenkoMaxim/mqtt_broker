@@ -406,7 +406,7 @@ uint32_t MqttStringPairEntity::Size() const {
 
 uint8_t* MqttStringPairEntity::GetData(){
     return data->first.GetData();
-};
+}
 
 pair<string, string> MqttStringPairEntity::GetStringPair() const {
     return pair{(const_cast<MqttStringPairEntity *>(this))->GetPair()->first.GetString(), (const_cast<MqttStringPairEntity *>(this))->GetPair()->second.GetString()};
@@ -440,13 +440,13 @@ uint32_t MqttVIntEntity::Size() const {
 
 uint8_t* MqttVIntEntity::GetData(){
     return (uint8_t *) data.get();
-};
+}
 
 void MqttVIntEntity::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint8_t size = 0;
     CodeVarInt(dst_buf, *data, size);
     offset += size;
-};
+}
 
 shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttStringPairEntity::GetPair(){
     return data;
@@ -455,9 +455,7 @@ shared_ptr<pair<MqttStringEntity, MqttStringEntity>> MqttStringPairEntity::GetPa
 MqttPropertyChain::MqttPropertyChain(const MqttPropertyChain & _chain){
     for(const auto &it: _chain.properties){
         shared_ptr<MqttProperty> p;
-
         auto p1 = *it.second;
-
         switch(it.second->GetType()){
             case mqtt_data_type::byte : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttByteEntity(it.second->GetUint())));};break;
             case mqtt_data_type::two_byte : {p = make_shared<MqttProperty>(it.first, shared_ptr<MqttEntity>(new MqttTwoByteEntity(it.second->GetUint())));};break;
@@ -757,11 +755,10 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, uint32_t 
 
 shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, const shared_ptr<MqttBinaryDataEntity> &message, uint32_t &size){
     FixedHeader fh(pack_type);
-    //cout << (int) fh.QoS() << endl;
 
     size = vh.GetSize() + message->Size()-2;
     if(fh.QoS() == 0) size -= 2; //delete id packet if quos is 0
-
+	
     fh.remaining_len = size;
     size += fh.Size();
 
@@ -771,12 +768,15 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
         return nullptr;
     }
     uint32_t offset = 0;
-
+	
     fh.Serialize(ptr.get(), offset);
     vh.Serialize(ptr.get() + offset, offset);
     message->SerializeWithoutLen(ptr.get() + offset, offset);
     
-    //cout << size << " " << offset << endl;
+	if (size != offset){
+		cout << "mqtt_broker assertion error " << size << " " << offset << endl;	
+	}
+
     assert(size == offset);
     return ptr;
 }

@@ -7,6 +7,8 @@
 #include "mqtt_broker.h"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/async.h"
+#include "spdlog/sinks/basic_file_sink.h"
 
 using namespace std;
 using namespace spdlog;
@@ -23,7 +25,8 @@ int main() {
         return 0;
     }
 
-    lg = spdlog::rotating_logger_mt("main", cfg_data.log_file_path, cfg_data.log_max_size, cfg_data.log_max_files);
+    //lg = spdlog::rotating_logger_mt("main", cfg_data.log_file_path, cfg_data.log_max_size, cfg_data.log_max_files);
+    lg = spdlog::basic_logger_mt<spdlog::async_factory>("main", cfg_data.log_file_path);
     lg->info("START BROKER");
     lg->info("logger file:{} size:{} Kb, max_files:{} level:{}", cfg_data.log_file_path,  cfg_data.log_max_size/1024, cfg_data.log_max_files, cfg_data.level);
     SetLogLevel(lg, cfg_data.level);
@@ -32,8 +35,10 @@ int main() {
     broker.SetEraseOldValues(false);
 
     int sock_fd = broker.InitSocket();
-    if (sock_fd < 0) exit(0);
+    if (sock_fd <= 0) exit(0);
     broker.InitControlSocket(cfg_data.control_socket_path);
+
+	signal(SIGPIPE, SIG_IGN);
 
     while (true){
         lg->info("Waiting for a client..."); lg->flush();
@@ -47,7 +52,7 @@ int main() {
                 close(newsock_fd);
                 continue;
             }
-            lg->debug("New client has been added: fd:{}", newsock_fd);
+            lg->info("New client has been added: fd:{}", newsock_fd);
             if (broker.GetState() == broker_states::init) broker.Start();
         }
         lg->flush();

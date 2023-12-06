@@ -2,7 +2,7 @@
 
 using namespace std;
 
-Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), state(0), flags(0), alive(0), packet_id_gen(1) {
+Client::Client(string _ip) : ip(std::move(_ip)), client_id(string{}), flags(0), alive(0), packet_id_gen(1) {
     time_t _cur_time;
     time(&_cur_time);
     SetPacketLastTime(_cur_time);
@@ -88,9 +88,7 @@ bool Client::MyTopic(const string &_topic, uint8_t& options){
 }
 
 uint16_t Client::GenPacketID(){
-    packet_id_gen++;
-    if (packet_id_gen == 0) packet_id_gen++;
-    return packet_id_gen;
+    return packet_id_gen++;
 }
 
 uint8_t Client::DelSubscription(const string &_topic_name){
