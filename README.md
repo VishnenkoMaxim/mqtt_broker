@@ -1,5 +1,5 @@
 # mqtt_broker
-  Broket for MQTT protocol (v.5)
+  MQTT broker (protocol v.5)
 
   Get started:
   
