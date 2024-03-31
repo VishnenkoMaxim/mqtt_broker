@@ -8,4 +8,4 @@ include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 add_executable(google_tests_run tests.cpp)
 
-target_link_libraries(google_tests_run gtest gtest_main functions command mqtt_protocol spdlog config++ stdc++ m)
+target_link_libraries(google_tests_run gtest gtest_main functions command mqtt_protocol config++ stdc++ m)

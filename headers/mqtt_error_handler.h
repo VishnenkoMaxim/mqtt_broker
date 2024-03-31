@@ -43,7 +43,6 @@ public:
 };
 
 //-----------------------------------------------------------------------------------
-
 class MqttErrorHandler{
 public:
     void AddErrorHandler(std::shared_ptr<IMqttErrorHandler>);

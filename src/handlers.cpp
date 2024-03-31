@@ -12,7 +12,7 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     memcpy(name_tmp, con_vh.name, 4);
     lg->debug("Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
 
-    if (con_vh.version != MQTT_VERSION_5 && con_vh.version != MQTT_VERSION_3){
+    if (con_vh.version != MQTT_VERSION_5){
         return mqtt_err::protocol_version_err;
     }
 
@@ -23,25 +23,24 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
                                             (pClient->WillQoSFlag()) ? "WillQoS " : "", (pClient->isWillRetFlag()) ? "WillRetainFlag " : "",
                                             (pClient->isPwdFlag()) ? "PWDFlag " : "", (pClient->isUserNameFlag()) ? "USRNameFlag " : "");
     //read properties
-    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5) {
-        uint32_t property_size;
-        int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
-        if (create_status != mqtt_err::ok) {
-            lg->error("Read properties error!");
-            return create_status;
-        } else lg->debug("[{}] Property count: {}", pClient->GetIP(), pClient->conn_properties.Count());
-        offset += property_size;
-    }
+    uint32_t property_size;
+    int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
+    if (create_status != mqtt_err::ok) {
+        lg->error("Read properties error!");
+        return create_status;
+    } else lg->debug("[{}] Property count: {}", pClient->GetIP(), pClient->conn_properties.Count());
+    offset += property_size;
 
     //read ClientID
     uint8_t id_len;
     auto id = CreateMqttStringEntity(buf.get() + offset, id_len);
     if (id != nullptr){
-		//auto check_fd = broker->GetClientFd(id->GetString());	
-		if (broker->CheckClientID(id->GetString()) == true){        
+		auto check_fd = broker->GetClientFd(id->GetString());
+		if (check_fd != -1){
     		lg->warn("[{}] client sent already existing id client {}", pClient->GetIP(), id->GetString());
-			//broker->CloseConnection(check_fd);            
-			return mqtt_err::duplicate_client_id;
+            if (pClient->isCleanFlag()){
+                broker->CloseConnection(check_fd);
+            } else return mqtt_err::duplicate_client_id;
         }
         pClient->SetID(id->GetString());
         lg->debug("[{}] ID: {}", pClient->GetIP(), pClient->GetID());
@@ -86,28 +85,19 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     return mqtt_err::ok;
 }
 
-int HandleMqttPublish(std::shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message){
+int HandleMqttPublish([[maybe_unused]] std::shared_ptr<Client>& pClient, const FixedHeader &fh, const shared_ptr<uint8_t>& buf, shared_ptr<logger>& lg, PublishVH &vh, shared_ptr<MqttBinaryDataEntity> &message){
     lg->debug("HandleMqttPublish");
     uint32_t offset = 0;
     PublishVH p_vh;
 
-    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5){
-        PublishVH tmp_vh(fh.QoS(), buf, offset);
-        p_vh = tmp_vh;
-    } else {
-        p_vh.topic_name = MqttStringEntity(ConvertToHost2Bytes(buf.get()), buf.get() + sizeof(uint16_t));
-        offset = p_vh.topic_name.Size();
-        if (fh.QoS() > mqtt_QoS::QoS_0){
-            p_vh.packet_id = ConvertToHost2Bytes(buf.get() + offset);
-            offset += sizeof(p_vh.packet_id);
-        }
-    }
+    PublishVH tmp_vh(fh.QoS(), buf, offset);
+    p_vh = tmp_vh;
 
     lg->info("topic name:'{}' packet_id:{} property_count:{}", p_vh.topic_name.GetString(), p_vh.packet_id, p_vh.p_chain.Count());
     vh = std::move(p_vh);
 
     //read Payload
-    lg->debug("message:{} retained:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset), fh.isRETAIN() ? true : false);
+    lg->debug("message:{} retained:{}", string((char *)(buf.get() + offset), fh.remaining_len - offset), fh.isRETAIN());
     *message = MqttBinaryDataEntity(fh.remaining_len - offset, buf.get() + offset);
 
     return mqtt_err::ok;
@@ -117,7 +107,7 @@ int HandleMqttSubscribe(shared_ptr<Client>& pClient, const FixedHeader &fh, cons
                         SubscribeVH &vh, vector<uint8_t> &_reason_codes, list<pair<string, uint8_t>>& subscribe_topics){
     lg->debug("HandleMqttSubscribe");
     uint32_t offset = 0;
-    vh = SubscribeVH(buf, offset, pClient->GetClientMQTTVersion());
+    vh = SubscribeVH(buf, offset);
 
     while(offset < fh.remaining_len){
         uint8_t options;

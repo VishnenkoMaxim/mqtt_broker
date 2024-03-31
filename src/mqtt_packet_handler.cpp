@@ -35,11 +35,16 @@ int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
 
     uint32_t answer_size;
     MqttPropertyChain p_chain;
-    if (pClient->isRandomID()) p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(pClient->GetID()))));
-    p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
-    p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
-    p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
-    p_chain.AddProperty(make_shared<MqttProperty>(shared_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
+
+//    if (pClient->isRandomID()) p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(pClient->GetID()))));
+//    p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
+//    p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
+//    p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
+//    p_chain.AddProperty(make_shared<MqttProperty>(shared_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
+
+    MqttPropertyChainBuilder property_builder;
+    if (pClient->isRandomID()) p_chain = std::move(property_builder.withClientIdentifier(pClient->GetID()).withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(0).withSharedSubAvailable(0).build());
+    else p_chain = std::move(property_builder.withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(0).withSharedSubAvailable(0).build());
 
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(!pClient->isCleanFlag(),success, std::move(p_chain)))};
     broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(CONNACK).Build(), answer_vh, answer_size)});
@@ -67,33 +72,17 @@ int MqttPublishPacketHandler::HandlePacket(const FixedHeader& f_header, const sh
     }
     if (f_header.QoS() == mqtt_QoS::QoS_1){
         uint32_t answer_size;
-        if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5) {
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id, success, MqttPropertyChain()))};
-            broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBACK).Build(), answer_vh, answer_size)});
-        } else {
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalV3VH(vh.packet_id))};
-            broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBACK).Build(), answer_vh, answer_size)});
-        }
+        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PubackVH(vh.packet_id, success, MqttPropertyChain()))};
+        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBACK).Build(), answer_vh, answer_size)});
     } else if (f_header.QoS() == mqtt_QoS::QoS_2){
         uint32_t answer_size;
-        if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5){
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
-            if (!broker->CheckIfMoreMessages(pClient->GetID())){
-                auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).Build(), answer_vh, answer_size);
-                broker->AddCommand(fd, tuple{answer_size, data_packet});
-            } else {
-                auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).WithDup().Build(), answer_vh, answer_size);
-                broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
-            }
+        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(vh.packet_id, success, MqttPropertyChain()))};
+        if (!broker->CheckIfMoreMessages(pClient->GetID())){
+            auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).Build(), answer_vh, answer_size);
+            broker->AddCommand(fd, tuple{answer_size, data_packet});
         } else {
-            VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalV3VH(vh.packet_id))};
-            if (!broker->CheckIfMoreMessages(pClient->GetID())){
-                auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).Build(), answer_vh, answer_size);
-                broker->AddCommand(fd, tuple{answer_size, data_packet});
-            } else {
-                auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).WithDup().Build(), answer_vh, answer_size);
-                broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
-            }
+            auto data_packet = CreateMqttPacket(FHBuilder().PacketType(PUBREC).WithDup().Build(), answer_vh, answer_size);
+            broker->AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data_packet, vh.packet_id});
         }
         broker->lg->info("[{}] {} ------>", pClient->GetIP(), broker->GetControlPacketTypeName(PUBREC));
     }
@@ -225,13 +214,8 @@ int MqttPubRelPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     broker->lg->debug("[{}] pubrel: id:{}", pClient->GetIP(), t_vh.packet_id);
 
     uint32_t answer_size;
-    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5){
-        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
-        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBCOMP).Build(), answer_vh, answer_size)});
-    } else {
-        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalV3VH(t_vh.packet_id))};
-        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBCOMP).Build(), answer_vh, answer_size)});
-    }
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBCOMP).Build(), answer_vh, answer_size)});
     broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
     broker->lg->info("[{}] {} ------>", pClient->GetIP(), broker->GetControlPacketTypeName(PUBCOMP));
 
@@ -268,16 +252,9 @@ int MqttPubRecPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f_
     broker->lg->debug("[{}] pubrec: id:{}",  broker->clients[fd]->GetIP(), t_vh.packet_id);
     auto pClient = broker->clients[fd];
     broker->DelQosEvent(pClient->GetID(), t_vh.packet_id);
-
     uint32_t answer_size;
-    if (pClient->GetClientMQTTVersion() == MQTT_VERSION_5) {
-        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
-        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBREL).Build() | 1 << 1, answer_vh, answer_size)});
-    } else {
-        VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalV3VH(t_vh.packet_id))};
-        broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBREL).Build() | 1 << 1, answer_vh, answer_size)});
-    }
-
+    VariableHeader answer_vh{shared_ptr<IVariableHeader>(new TypicalVH(t_vh.packet_id, success, MqttPropertyChain()))};
+    broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(PUBREL).Build() | 1 << 1, answer_vh, answer_size)});
     broker->lg->info("[{}] {} ------>", pClient->GetIP(), broker->GetControlPacketTypeName(PUBREL));
     return mqtt_err::ok;
 }

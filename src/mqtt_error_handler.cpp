@@ -11,7 +11,7 @@ int IMqttErrorHandler::GetErr() {return error;}
 MqttDisconnectErr::MqttDisconnectErr() : IMqttErrorHandler(mqtt_err::disconnect) {}
 
 void MqttDisconnectErr::HandleError(Broker& broker, [[maybe_unused]] const int fd){
-    broker.lg->debug("handle_stat OK");
+    broker.lg->debug("handle_stat disconnect OK");
 }
 
 //unsupported_protocol_version

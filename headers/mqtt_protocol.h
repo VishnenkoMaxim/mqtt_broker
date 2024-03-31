@@ -20,7 +20,6 @@
 #define DUP_FLAG        0x08;
 
 #define MQTT_VERSION_5      5
-#define MQTT_VERSION_3      4
 
 namespace mqtt_protocol{
     //MQTT Control Packet types
@@ -170,9 +169,9 @@ namespace mqtt_protocol{
 
     class FHBuilder{
     public:
-        FHBuilder& PacketType(const uint8_t type);
+        FHBuilder& PacketType(uint8_t type);
         FHBuilder& WithDup();
-        FHBuilder& WithQoS(const uint8_t qos);
+        FHBuilder& WithQoS(uint8_t qos);
         FHBuilder& WithRetain();
 
         uint8_t Build();
@@ -216,6 +215,7 @@ namespace mqtt_protocol{
         uint8_t* GetData() override;
         [[nodiscard]] uint32_t GetUint() const override;
         void Serialize(uint8_t* dst_buf, uint32_t &offset) override;
+
         ~MqttByteEntity() override {
             data.reset();
         }
@@ -393,9 +393,9 @@ namespace mqtt_protocol{
 
     class MqttPropertyChain{
     private:
-        //map<uint8_t, shared_ptr<MqttProperty>, less<>, PoolAllocator<pair<uint8_t, shared_ptr<MqttProperty>>, 5>> properties;
         std::map<uint8_t, std::shared_ptr<MqttProperty>> properties;
     public:
+
         MqttPropertyChain() = default;
         MqttPropertyChain(const MqttPropertyChain & _chain);
         MqttPropertyChain& operator = (const MqttPropertyChain & _chain);
@@ -425,6 +425,19 @@ namespace mqtt_protocol{
                 it.second.reset();
             }
         }
+    };
+
+    class MqttPropertyChainBuilder{
+    public:
+        MqttPropertyChain& build();
+        MqttPropertyChainBuilder& withClientIdentifier(const std::string &id);
+        MqttPropertyChainBuilder& withRetainAvailable(uint8_t value);
+        MqttPropertyChainBuilder& withMaxPocketSize(unsigned int max_pocket_size);
+        MqttPropertyChainBuilder& withWildCard(uint8_t value);
+        MqttPropertyChainBuilder& withSharedSubAvailable(uint8_t value);
+
+    private:
+        MqttPropertyChain properties;
     };
 
     class IVariableHeader{
@@ -513,7 +526,6 @@ namespace mqtt_protocol{
         SubscribeVH() : packet_id(0){};
 
         SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset);
-        SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset, const uint8_t version);
         SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain);
         SubscribeVH(const SubscribeVH &_vh);
         SubscribeVH(SubscribeVH &&_vh) noexcept;

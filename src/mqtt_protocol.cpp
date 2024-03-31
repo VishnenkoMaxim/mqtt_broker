@@ -490,7 +490,7 @@ MqttPropertyChain& MqttPropertyChain::operator = (const MqttPropertyChain & _cha
     return *this;
 }
 
-MqttPropertyChain::MqttPropertyChain(MqttPropertyChain && _chain) noexcept{
+MqttPropertyChain::MqttPropertyChain(MqttPropertyChain && _chain) noexcept {
     properties = std::move(_chain.properties);
 }
 
@@ -779,4 +779,34 @@ shared_ptr<uint8_t> mqtt_protocol::CreateMqttPacket(uint8_t pack_type, VariableH
 
     assert(size == offset);
     return ptr;
+}
+
+MqttPropertyChainBuilder& MqttPropertyChainBuilder::withClientIdentifier(const std::string &id) {
+    properties.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(id))));
+    return *this;
+}
+
+MqttPropertyChainBuilder& MqttPropertyChainBuilder::withMaxPocketSize(const unsigned int max_pocket_size) {
+    properties.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(max_pocket_size))));
+    return *this;
+}
+
+MqttPropertyChainBuilder& MqttPropertyChainBuilder::withRetainAvailable(const uint8_t value){
+    properties.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(value))));
+    return *this;
+}
+
+
+MqttPropertyChainBuilder& MqttPropertyChainBuilder::withWildCard(const uint8_t value){
+    properties.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity(value))));
+    return *this;
+}
+
+MqttPropertyChainBuilder& MqttPropertyChainBuilder::withSharedSubAvailable(const uint8_t value){
+    properties.AddProperty(make_shared<MqttProperty>(shared_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity(value))));
+    return *this;
+}
+
+MqttPropertyChain& MqttPropertyChainBuilder::build() {
+    return properties;
 }

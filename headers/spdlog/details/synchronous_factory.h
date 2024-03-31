@@ -2,7 +2,7 @@
 // Distributed under the MIT License (http://opensource.org/licenses/MIT)
 
 #pragma once
-
+#include <iostream>
 #include "registry.h"
 
 namespace spdlog {

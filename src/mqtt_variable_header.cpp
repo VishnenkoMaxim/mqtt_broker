@@ -172,18 +172,6 @@ SubscribeVH::SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset){
     offset += property_size;
 }
 
-SubscribeVH::SubscribeVH(const std::shared_ptr<uint8_t>& buf, uint32_t &offset, const uint8_t version){
-    offset = 0;
-    packet_id = ConvertToHost2Bytes(buf.get());
-    offset += sizeof(packet_id);
-
-    if (version == MQTT_VERSION_5){
-        uint32_t property_size;
-        p_chain.Create(buf.get() + offset, property_size);
-        offset += property_size;
-    }
-}
-
 SubscribeVH::SubscribeVH(uint16_t _packet_id, MqttPropertyChain &_p_chain) : packet_id(_packet_id), p_chain(_p_chain){}
 SubscribeVH::SubscribeVH(const SubscribeVH &_vh) : packet_id(_vh.packet_id), p_chain(_vh.p_chain){}
 SubscribeVH::SubscribeVH(SubscribeVH &&_vh) noexcept : packet_id(_vh.packet_id), p_chain(std::move(_vh.p_chain)){}
