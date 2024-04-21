@@ -7,10 +7,11 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     ConnectVH con_vh;
     uint32_t offset = 0;
     con_vh.ReadFromBuf(buf.get(), offset);
+    auto client_ip = pClient->GetIP();
 
     char name_tmp[5] = "";
     memcpy(name_tmp, con_vh.name, 4);
-    lg->debug("Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
+    lg->debug("[{}] Connect VH: len:{} name:{} version:{} flags:{:X} alive:{}", client_ip, con_vh.prot_name_len, name_tmp, con_vh.version, con_vh.conn_flags, con_vh.alive);
 
     if (con_vh.version != MQTT_VERSION_5){
         return mqtt_err::protocol_version_err;
@@ -19,16 +20,17 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     pClient->SetClientMQTTVersion(con_vh.version);
     pClient->SetConnAlive(con_vh.alive);
     pClient->SetConnFlags(con_vh.conn_flags);
-    lg->debug("Connection flags:{}{}{}{}{}{}", (pClient->isCleanFlag()) ? "CleanStart " : "", (pClient->isWillFlag()) ? "WillFlag " : "",
+    lg->debug("[{}] Connection flags:{}{}{}{}{}{}" ,client_ip, (pClient->isCleanFlag()) ? "CleanStart " : "", (pClient->isWillFlag()) ? "WillFlag " : "",
                                             (pClient->WillQoSFlag()) ? "WillQoS " : "", (pClient->isWillRetFlag()) ? "WillRetainFlag " : "",
                                             (pClient->isPwdFlag()) ? "PWDFlag " : "", (pClient->isUserNameFlag()) ? "USRNameFlag " : "");
+
     //read properties
     uint32_t property_size;
     int create_status = pClient->conn_properties.Create(buf.get() + offset, property_size);
     if (create_status != mqtt_err::ok) {
-        lg->error("Read properties error!");
+        lg->error("[{}] Read properties error!", client_ip);
         return create_status;
-    } else lg->debug("[{}] Property count: {}", pClient->GetIP(), pClient->conn_properties.Count());
+    } else lg->debug("[{}] Property count: {}", client_ip, pClient->conn_properties.Count());
     offset += property_size;
 
     //read ClientID
@@ -37,16 +39,16 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
     if (id != nullptr){
 		auto check_fd = broker->GetClientFd(id->GetString());
 		if (check_fd != -1){
-    		lg->warn("[{}] client sent already existing id client {}", pClient->GetIP(), id->GetString());
+    		lg->warn("[{}] client sent already existing id client {}", client_ip, id->GetString());
             if (pClient->isCleanFlag()){
                 broker->CloseConnection(check_fd);
             } else return mqtt_err::duplicate_client_id;
         }
         pClient->SetID(id->GetString());
-        lg->debug("[{}] ID: {}", pClient->GetIP(), pClient->GetID());
+        lg->debug("[{}] ID: {}", client_ip, pClient->GetID());
     } else {
         pClient->SetID(GenRandom(23));
-        lg->info("[{}] No ClientID provided, create new ID:{}", pClient->GetIP(), pClient->GetID());
+        lg->info("[{}] No ClientID provided, create new ID:{}", client_ip, pClient->GetID());
         pClient->SetRandomID();
     }
 
@@ -57,18 +59,18 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
         uint32_t will_property_size;
         int will_create_status = pClient->will_properties.Create(buf.get() + offset, will_property_size);
         if (will_create_status != mqtt_err::ok){
-            lg->error("Read will properties error!");
+            lg->error("[{}] Read will properties error!", client_ip);
             return will_create_status;
         }
         offset += will_property_size;
-        lg->debug("will properties count: {} ", pClient->will_properties.Count());
+        lg->debug("[{}] will properties count: {} ", client_ip, pClient->will_properties.Count());
         lg->flush();
 
         uint16_t str_len = ConvertToHost2Bytes(buf.get() + offset);
         offset += sizeof(str_len);
         string will_topic_name = string((char *) (buf.get() + offset), str_len);
         offset += str_len;
-        lg->debug("will topic: {} WillQoS:{}", will_topic_name, pClient->WillQoSFlag());
+        lg->debug("[{}] will topic: {} WillQoS:{}", client_ip, will_topic_name, pClient->WillQoSFlag());
         lg->flush();
 
         uint16_t data_len = ConvertToHost2Bytes(buf.get() + offset);
@@ -78,10 +80,30 @@ int HandleMqttConnect(shared_ptr<Client>& pClient, const shared_ptr<uint8_t>& bu
 
         pClient->will_topic = MqttTopic(pClient->WillQoSFlag(), 1, will_topic_name, pMessage);
         offset += data_len;
-        lg->debug("will message len: {} ", pClient->will_topic.GetSize());
+        lg->debug("[{}] will message len: {} ", client_ip, pClient->will_topic.GetSize());
         lg->flush();
     }
 
+    //user name
+    if (pClient->isUserNameFlag()){
+        uint8_t user_name_len = 0;
+        auto user_name = CreateMqttStringEntity(buf.get() + offset, user_name_len);
+        if (user_name != nullptr){
+            lg->debug("[{}] user name: {} ", client_ip, user_name->GetString());
+            pClient->setUserName(user_name);
+            offset += user_name_len;
+        } else return mqtt_err::user_name_err;
+
+        if (pClient->isPwdFlag()){
+            uint8_t passwd_len = 0;
+            auto pwd = CreateMqttBinaryDataEntity(buf.get() + offset, passwd_len);
+            if (pwd != nullptr){
+                lg->debug("[{}] password: {} ", client_ip, pwd->GetString());
+                pClient->setPwd(pwd);
+                offset += passwd_len;
+            } else return mqtt_err::auth_fail;
+        }
+    }
     return mqtt_err::ok;
 }
 

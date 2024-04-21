@@ -79,12 +79,9 @@ unordered_map<string, uint8_t>::const_iterator Client::CEnd(){
 }
 
 bool Client::MyTopic(const string &_topic, uint8_t& options){
-    auto it = subscribed_topics.find(_topic);
-    if (it != subscribed_topics.end()) {
-        options = it->second;
-        return true;
-    }
-    return false;
+    auto [result, qos] = checkWildCards(_topic);
+    options = qos;
+    return result;
 }
 
 uint16_t Client::GenPacketID(){
@@ -106,3 +103,46 @@ uint8_t Client::GetClientMQTTVersion() const noexcept{
 void Client::SetClientMQTTVersion(const uint8_t version) noexcept {
     mqtt_version = version;
 }
+
+std::pair<bool, uint8_t> Client::checkWildCards(const std::string& topic_name) const{
+    regex re(R"([\s|\/]+)");
+    const auto tokenized_topic_name = tokenize(topic_name, re);
+
+    for (const auto& it : subscribed_topics){
+        if (it.first == "#") return make_pair(true, it.second);
+        if (topic_name == it.first) return make_pair(true, it.second);
+
+        const auto tokenized_subscribed_topic = tokenize(it.first, re);
+        for (unsigned int i=0; i<tokenized_topic_name.size(); i++){
+            if (tokenized_subscribed_topic[i] == "+"){
+                if (i == tokenized_topic_name.size()-1 && i == tokenized_subscribed_topic.size()-1) return make_pair(true, it.second);
+                continue;
+            }
+            if (tokenized_subscribed_topic[i] == "#") return make_pair(true, it.second);
+            if (tokenized_topic_name[i] != tokenized_subscribed_topic[i]) break;
+
+            if (i == tokenized_topic_name.size()-1 && i == tokenized_subscribed_topic.size()-1) return make_pair(true, it.second);
+        }
+    }
+    return make_pair(false, 0);
+}
+
+bool  Client::isAuthorized() const {
+    return Authorized;
+}
+
+void Client::setLoggedIn() {
+    Authorized = true;
+}
+
+void Client::setUserName(std::shared_ptr<mqtt_protocol::MqttStringEntity> &p_name){
+    user_name = p_name;
+}
+
+void Client::setPwd(std::shared_ptr<mqtt_protocol::MqttBinaryDataEntity> &p_pwd){
+    pwd = p_pwd;
+}
+
+
+
+

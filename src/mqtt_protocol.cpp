@@ -635,6 +635,22 @@ shared_ptr<MqttStringEntity> mqtt_protocol::CreateMqttStringEntity(const uint8_t
     return make_shared<MqttStringEntity>(len, &buf[2]);
 }
 
+std::shared_ptr<MqttBinaryDataEntity> mqtt_protocol::CreateMqttBinaryDataEntity(const uint8_t *buf, uint8_t &size){
+    if (buf == nullptr){
+        size = 0;
+        return nullptr;
+    }
+    uint16_t len;
+    len = ConvertToHost2Bytes(buf);
+    if (len == 0){
+        size = 0;
+        return nullptr;
+    }
+    size = sizeof(len);
+    size += len;
+    return make_shared<MqttBinaryDataEntity>(len, &buf[2]);
+}
+
 shared_ptr<MqttProperty> mqtt_protocol::CreateProperty(const uint8_t *buf, uint8_t &size){
     if (buf == nullptr){
         size = 0;

@@ -5,6 +5,7 @@
 #include <memory>
 #include <list>
 #include "spdlog/spdlog.h"
+#include <regex>
 
 namespace temp_funcs {
     template<int V, int num>
@@ -102,3 +103,5 @@ std::string GenRandom(const uint8_t len);
 
 template <class Type>
 std::ostream& operator << (std::ostream &os, const std::vector<Type> &_vec);
+
+std::vector<std::string> tokenize(const std::string& str, const std::regex& re);

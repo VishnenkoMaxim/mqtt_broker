@@ -156,3 +156,10 @@ ostream& operator << (ostream &os, const vector<Type> &_vec){
     os << endl;
     return os;
 }
+
+vector<string> tokenize(const string& str, const regex& re){
+    sregex_token_iterator it{str.begin(),str.end(), re, -1 };
+    vector<string> tokenized{ it, {} };
+    tokenized.erase(remove_if(tokenized.begin(),tokenized.end(), [](string const& s) { return s.size() == 0;}), tokenized.end());
+    return tokenized;
+}

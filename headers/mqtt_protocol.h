@@ -140,7 +140,9 @@ namespace mqtt_protocol{
         disconnect,
         handle_error,
         protocol_version_err,
-        duplicate_client_id
+        duplicate_client_id,
+        user_name_err,
+        auth_fail
     };
 
     class FixedHeader{
@@ -696,6 +698,7 @@ namespace mqtt_protocol{
     [[nodiscard]] uint8_t GetVarIntSize(uint32_t value);
     [[nodiscard]] std::shared_ptr<MqttProperty> CreateProperty(const uint8_t *buf, uint8_t &size);
     [[nodiscard]] std::shared_ptr<MqttStringEntity> CreateMqttStringEntity(const uint8_t *buf, uint8_t &size);
+    [[nodiscard]] std::shared_ptr<MqttBinaryDataEntity> CreateMqttBinaryDataEntity(const uint8_t *buf, uint8_t &size);
 
     std::shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, uint32_t &size);
     std::shared_ptr<uint8_t> CreateMqttPacket(uint8_t pack_type, VariableHeader &vh, uint32_t &size);

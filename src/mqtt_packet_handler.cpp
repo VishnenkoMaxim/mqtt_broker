@@ -35,16 +35,9 @@ int MqttConnectPacketHandler::HandlePacket([[maybe_unused]] const FixedHeader& f
 
     uint32_t answer_size;
     MqttPropertyChain p_chain;
-
-//    if (pClient->isRandomID()) p_chain.AddProperty(make_shared<MqttProperty>(assigned_client_identifier, shared_ptr<MqttEntity>(new MqttStringEntity(pClient->GetID()))));
-//    p_chain.AddProperty(make_shared<MqttProperty>(retain_available, shared_ptr<MqttEntity>(new MqttByteEntity(1))));
-//    p_chain.AddProperty(make_shared<MqttProperty>(maximum_packet_size, shared_ptr<MqttEntity>(new MqttFourByteEntity(65535))));
-//    p_chain.AddProperty(make_shared<MqttProperty>(wildcard_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
-//    p_chain.AddProperty(make_shared<MqttProperty>(shared_subscription_available, shared_ptr<MqttEntity>(new MqttByteEntity((uint8_t)0))));
-
     MqttPropertyChainBuilder property_builder;
-    if (pClient->isRandomID()) p_chain = std::move(property_builder.withClientIdentifier(pClient->GetID()).withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(0).withSharedSubAvailable(0).build());
-    else p_chain = std::move(property_builder.withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(0).withSharedSubAvailable(0).build());
+    if (pClient->isRandomID()) p_chain = std::move(property_builder.withClientIdentifier(pClient->GetID()).withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(1).withSharedSubAvailable(0).build());
+    else p_chain = std::move(property_builder.withRetainAvailable(1).withMaxPocketSize(65535).withWildCard(1).withSharedSubAvailable(0).build());
 
     VariableHeader answer_vh{shared_ptr<IVariableHeader>(new ConnactVH(!pClient->isCleanFlag(),success, std::move(p_chain)))};
     broker->AddCommand(fd, tuple{answer_size, CreateMqttPacket(FHBuilder().PacketType(CONNACK).Build(), answer_vh, answer_size)});
@@ -121,13 +114,14 @@ int MqttSubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const 
 
     for (const auto& it : tpcs){
         broker->lg->info("[{}] serach for topic name:'{}' among retained", pClient->GetIP(), it.first);
-        bool found;
-        auto retain_topic = broker->GetTopic(it.first, found);
-
-        if(found){
-            broker->lg->debug("[{}] Found retain topic:{}",  pClient->GetIP(), it.first); broker->lg->flush();
-            retain_topic.SetQos(it.second);
-            broker->NotifyClient(fd, retain_topic);
+        auto retain_topics = broker->GetMatchedTopics(it.first);
+        if (!retain_topics.empty()){
+            for (const auto &it_ret_topics : retain_topics){
+                broker->lg->debug("[{}] Found retain topic:{}",  pClient->GetIP(), it_ret_topics.GetName()); broker->lg->flush();
+                auto retain_topic = it_ret_topics;
+                retain_topic.SetQos(it.second);
+                broker->NotifyClient(fd, retain_topic);
+            }
         }
     }
     return mqtt_err::ok;

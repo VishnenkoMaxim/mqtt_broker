@@ -46,7 +46,7 @@ target_include_directories(mqtt_protocol PRIVATE "${CMAKE_BINARY_DIR}")
 target_include_directories(command PRIVATE "${CMAKE_BINARY_DIR}")
 
 target_link_libraries(command PRIVATE functions)
-target_link_libraries(mqtt_broker PRIVATE functions command mqtt_protocol config++ stdc++ pthread)
+target_link_libraries(mqtt_broker PRIVATE functions command mqtt_protocol config++ stdc++ pthread m)
 
 #add_subdirectory(test)
 
@@ -54,7 +54,6 @@ target_compile_options(mqtt_broker PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(functions PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(mqtt_protocol PRIVATE -Wall -Wextra -pedantic)
 target_compile_options(command PRIVATE -Wall -Wextra -pedantic)
-#target_compile_options(mqtt_variable_header PRIVATE -Wall -Wextra -pedantic)
 
 install(TARGETS mqtt_broker RUNTIME DESTINATION /home)
 set(CPACK_GENERATOR DEB)

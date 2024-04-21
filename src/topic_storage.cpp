@@ -49,6 +49,32 @@ MqttTopic CTopicStorage::GetTopic(const string& topic_name, bool& found) {
     return tmp_topic;
 }
 
+std::set<MqttTopic> CTopicStorage::GetMatchedTopics(const std::string& topic_name){
+    shared_lock lock(mtx);
+    if (topic_name == "#" || topic_name == "/#") return topics;
+
+    set<MqttTopic> matched_topics;
+    regex re(R"([\s|\/]+)");
+    const auto tokenized_topic_name = tokenize(topic_name, re);
+
+    for (const auto& it : topics){
+        const auto tokenized_stored_topic = tokenize(it.GetName(), re);
+
+        for (unsigned int i=0; i<tokenized_topic_name.size(); i++){
+            if (tokenized_topic_name[i] == "+"){
+                if (i == tokenized_topic_name.size()-1 && i == tokenized_stored_topic.size()-1) matched_topics.insert(it);
+                continue;
+            }
+            if (tokenized_topic_name[i] == "#") matched_topics.insert(it);
+            if (tokenized_topic_name[i] != tokenized_stored_topic[i]) break;
+
+            if (i == tokenized_topic_name.size()-1 && i == tokenized_stored_topic.size()-1) matched_topics.insert(it);
+        }
+    }
+
+    return matched_topics;
+}
+
 void CTopicStorage::DeleteTopicValue(const MqttTopic& _topic){
     unique_lock lock(mtx);
     topics.erase(_topic);

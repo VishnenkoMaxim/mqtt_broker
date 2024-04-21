@@ -97,6 +97,7 @@ private:
     std::shared_mutex clients_mtx;
     unsigned int current_clients;
     std::unordered_map<int, std::shared_ptr<Client>> clients;
+    std::vector<std::weak_ptr<Client>> subscribed_clients;
 
     int state;
     int control_sock;
@@ -121,6 +122,9 @@ private:
     bool erase_old_values_in_queue{false};
     bool CheckIfMoreMessages(const std::string& client_id);
     std::pair<uint32_t, std::shared_ptr<uint8_t>> GetPacket(const std::string& client_id, bool &found);
+    bool loginClient(Client& client, const std::shared_ptr<mqtt_protocol::MqttStringEntity> &p_name,
+               const std::shared_ptr<mqtt_protocol::MqttBinaryDataEntity> &p_pwd, mqtt_protocol::mqtt_err &err) noexcept;
+
 
     friend MqttConnectPacketHandler;
     friend MqttPublishPacketHandler;

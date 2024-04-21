@@ -15,11 +15,12 @@ public:
     MqttBinaryDataEntity GetStoredValue(const std::string& topic_name, bool& found);
     std::shared_ptr<MqttBinaryDataEntity> GetStoredValuePtr(const std::string& topic_name);
     MqttTopic GetTopic(const std::string& topic_name, bool& found);
+    std::set<MqttTopic> GetMatchedTopics(const std::string& topic_name);
     void DeleteTopicValue(const MqttTopic& _topic);
 
     void AddQoSTopic(const std::string& client_id, const MqttTopic& topic);
-    MqttTopic GetQoSTopic(const std::string& client_id, const uint16_t packet_id, bool &found);
-    void DelQoSTopic(const std::string& client_id, const uint16_t packet_id);
+    MqttTopic GetQoSTopic(const std::string& client_id, uint16_t packet_id, bool &found);
+    void DelQoSTopic(const std::string& client_id, uint16_t packet_id);
     uint32_t GetQoSTopicCount();
 
 private:
