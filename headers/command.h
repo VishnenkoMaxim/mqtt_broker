@@ -21,7 +21,7 @@
 
 class Writer {
 public:
-    Writer()= default;
+    Writer() = default;
     int Write(int fd, const std::shared_ptr<uint8_t>& buf, uint32_t buf_len);
 };
 
@@ -42,12 +42,11 @@ public:
 class FdWriteCommand : public WriteCommand{
 private:
     std::tuple<uint32_t, std::shared_ptr<uint8_t>> cmd;
-    static int count;
     int fd;
 public:
-    FdWriteCommand(std::shared_ptr<Writer> _writer, const int _fd, std::tuple<uint32_t, std::shared_ptr<uint8_t>> _cmd) : WriteCommand(std::move(_writer)), cmd(std::move(_cmd)), fd(_fd) {
-        count++;
-    }
+    FdWriteCommand(std::shared_ptr<Writer> _writer, const int _fd, std::tuple<uint32_t, std::shared_ptr<uint8_t>> _cmd)
+                : WriteCommand(std::move(_writer)), cmd(std::move(_cmd)), fd(_fd) {}
+
     void Execute() override;
 };
 
@@ -63,7 +62,7 @@ public:
         stream = std::make_shared<Writer>();
     }
 
-    void AddCommand(int fd, std::tuple<uint32_t, std::shared_ptr<uint8_t>> _cmd);
+    void AddCommand(int fd, std::tuple<uint32_t, const std::shared_ptr<uint8_t>&> _cmd);
     void Execute();
     void Notify();
 };

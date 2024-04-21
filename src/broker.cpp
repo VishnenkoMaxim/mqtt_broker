@@ -87,7 +87,7 @@ void Broker::ServerThread(){
             }; break;
 
             case broker_states::wait_state : {
-                broker.lg->trace("state wait"); broker.lg->flush();
+                broker.lg->trace("state wait");
                 int ready;
                 uint32_t client_num = broker.GetClientCount() + 1;
                 assert(vec_fds.data() != nullptr);
@@ -95,10 +95,10 @@ void Broker::ServerThread(){
                 ready = poll(vec_fds.data(), client_num, 1000);
 
                 if (ready == -1){
-                    broker.lg->critical("poll error"); broker.lg->flush();
+                    broker.lg->critical("poll error");
                     sleep(1);
                     broker.SetState(broker_states::started);
-                } else broker.lg->trace("poll ok"); broker.lg->flush();
+                } else broker.lg->trace("poll ok");
 
                 list<int> fd_to_delete;
                 time_t current_time;
@@ -108,23 +108,23 @@ void Broker::ServerThread(){
                         if (vec_fds[i].revents & POLLIN) {
                             vec_fds[i].revents = 0;
                             if (vec_fds[i].fd == broker.control_sock){
-                                broker.lg->debug("Got control command"); broker.lg->flush();
+                                broker.lg->debug("Got control command");
                                 int data_socket = accept(broker.control_sock, nullptr, nullptr);
                                 if (data_socket != -1) {
                                     char c_buf[16] = "";
                                     int ret = read(data_socket, c_buf, sizeof(c_buf));
                                     if (ret > 0) {
                                         if (!strncmp(c_buf, "ADD", sizeof(c_buf))) {
-                                            broker.lg->debug("add new client, reinit fds"); broker.lg->flush();
+                                            broker.lg->debug("add new client, reinit fds");
                                             broker.SetState(broker_states::started);
                                             close(data_socket);
                                             break;
-                                        } else  broker.lg->warn("Ignore command. Unknown command in command socket."); broker.lg->flush();
-                                    } else broker.lg->error("data_socket read error"); broker.lg->flush();
+                                        } else  broker.lg->warn("Ignore command. Unknown command in command socket.");
+                                    } else broker.lg->error("data_socket read error");
                                     close(data_socket);
-                                } else broker.lg->error("control socket accept error"); broker.lg->flush();
+                                } else broker.lg->error("control socket accept error");
                             } else {
-                                broker.lg->debug("Have data"); broker.lg->flush();
+                                broker.lg->debug("Have data");
                                 int fd = vec_fds[i].fd;
                                 auto pClient = broker.clients[fd];
                                 pClient->SetPacketLastTime(current_time);
@@ -140,13 +140,11 @@ void Broker::ServerThread(){
                                         fd_to_delete.push_back(fd);
                                         continue;
                                     }
-                                    broker.lg->flush();
                                     int handle_stat = broker.HandlePacket(f_head, buf, &broker, fd);
                                     if (handle_stat != mqtt_err::ok){
                                         broker.HandleError(handle_stat, broker, fd);
                                         fd_to_delete.push_back(fd);
                                     } else broker.lg->debug("handle_stat OK");
-                                    broker.lg->flush();
                                 } else {
                                     broker.lg->error("Mqtt protocol error. Can't read FixedHeader. status:{}", static_cast<int>(ret));
                                     fd_to_delete.push_back(fd);
@@ -183,11 +181,11 @@ void Broker::ServerThread(){
                     }
                 }
                 if (!fd_to_delete.empty()){
-					broker.lg->warn("close connections"); broker.lg->flush();
+					broker.lg->warn("close connections");
                     broker.SetState(broker_states::started);
                     for(const auto &it : fd_to_delete){
 						auto pClient = broker.clients[it];
-						broker.lg->warn("close connection fd:{} ID:{}", it, pClient->GetID()); broker.lg->flush();
+						broker.lg->warn("close connection fd:{} ID:{}", it, pClient->GetID());
                         broker.CloseConnection(it);
                     }
                 }
