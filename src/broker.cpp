@@ -236,6 +236,7 @@ void Broker::DelClient(int sock){
 
     unique_lock lock{clients_mtx};
     clients.erase(sock);
+    DelSubscribedClient(sock);
 }
 
 uint32_t Broker::GetClientCount() noexcept {
@@ -413,32 +414,35 @@ void Broker::CloseConnection(int fd){
 
 int Broker::NotifyClients(MqttTopic& topic){
     lg->debug("NotifyClients()"); lg->flush();
-    for(const auto& it : clients){
+    //for(const auto& it : clients){
+    for(const auto& it : subscribed_clients){
+        auto pClient = it.second.lock();
+        if (!pClient) continue;
+
         string topic_name_str = topic.GetName();
         uint8_t options;
-        if(it.second->MyTopic(topic_name_str, options)){
+        if(pClient->MyTopic(topic_name_str, options)){
             topic.SetQos(options & 0x03);
             if (topic.GetQoS() == mqtt_QoS::QoS_0) topic.SetPacketID(0);
-            else topic.SetPacketID(it.second->GenPacketID());
+            else topic.SetPacketID(pClient->GenPacketID());
             lg->debug("Add topic to send :{} QoS:{} packet_id:{}", topic_name_str, topic.GetQoS(), topic.GetID()); lg->flush();
 
             uint32_t answer_size;
 			
             VariableHeader answer_vh{shared_ptr<IVariableHeader>(new PublishVH(MqttStringEntity(topic.GetName()), topic.GetID(), MqttPropertyChain()))};
             if (topic.GetQoS() > mqtt_QoS::QoS_0){
-                if (!CheckIfMoreMessages(it.second->GetID())){
+                if (!CheckIfMoreMessages(pClient->GetID())){
                     auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
                     AddCommand(it.first, tuple{answer_size, data});
                 } else {
                     auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).WithDup().Build(), answer_vh, topic.GetPtr(), answer_size);
-                    AddQosEvent(it.second->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
+                    AddQosEvent(pClient->GetID(), mqtt_packet{answer_size, data, topic.GetID()});
                 }
             } else {
                 auto data = CreateMqttPacket(FHBuilder().PacketType(PUBLISH).WithQoS(topic.GetQoS()).Build(), answer_vh, topic.GetPtr(), answer_size);
                 AddCommand(it.first, tuple{answer_size, data});
             }
-
-            lg->info("[{}] fd:{} {} ------>", it.second->GetIP(), it.first, GetControlPacketTypeName(PUBLISH));
+            lg->info("[{}] fd:{} {} ------>", pClient->GetIP(), it.first, GetControlPacketTypeName(PUBLISH));
         }
     }
     return mqtt_err::ok;
@@ -535,4 +539,10 @@ int Broker::GetClientFd(const std::string& client_id) const noexcept {
     return -1;
 }
 
+void Broker::AddSubscribedClient(int sock, const std::shared_ptr<Client>& pClient){
+    subscribed_clients.insert(make_pair(sock, pClient));
+}
 
+void Broker::DelSubscribedClient(int sock){
+    subscribed_clients.erase(sock);
+}

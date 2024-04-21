@@ -124,6 +124,8 @@ int MqttSubscribePacketHandler::HandlePacket(const FixedHeader& f_header, const 
             }
         }
     }
+
+    broker->AddSubscribedClient(fd, pClient);
     return mqtt_err::ok;
 }
 

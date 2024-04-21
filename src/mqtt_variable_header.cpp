@@ -23,8 +23,12 @@ void ConnectVH::Serialize(uint8_t* dst_buf, uint32_t &offset){
     uint16_t tmp = htons(prot_name_len);
     memcpy(dst_buf + local_offset, &tmp, sizeof(prot_name_len));
     local_offset += sizeof(prot_name_len);
-    memcpy(dst_buf + local_offset, name, 4 + sizeof(version) + sizeof(conn_flags));
-    local_offset += 4 + sizeof(version) + sizeof(conn_flags);
+    memcpy(dst_buf + local_offset, name, 4);
+    local_offset += 4;
+    memcpy(dst_buf + local_offset, &version, sizeof(version));
+    local_offset += sizeof(version);
+    memcpy(dst_buf + local_offset, &conn_flags, sizeof(conn_flags));
+    local_offset += sizeof(conn_flags);
     tmp = htons(alive);
     memcpy(dst_buf + local_offset, &tmp, sizeof(alive));
     local_offset += sizeof(alive);

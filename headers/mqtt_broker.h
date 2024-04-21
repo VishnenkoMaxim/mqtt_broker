@@ -97,7 +97,7 @@ private:
     std::shared_mutex clients_mtx;
     unsigned int current_clients;
     std::unordered_map<int, std::shared_ptr<Client>> clients;
-    std::vector<std::weak_ptr<Client>> subscribed_clients;
+    std::unordered_map<int, std::weak_ptr<Client>> subscribed_clients;
 
     int state;
     int control_sock;
@@ -175,6 +175,8 @@ public:
     bool CheckClientID(const std::string& client_id) const noexcept;
 	int  GetClientFd(const std::string& client_id) const noexcept;
 	void CloseConnection(int fd);
+    void AddSubscribedClient(int sock, const std::shared_ptr<Client>& pClient);
+    void DelSubscribedClient(int sock);
 };
 
 int HandleMqttConnect(std::shared_ptr<Client>& pClient, const std::shared_ptr<uint8_t>& buf, std::shared_ptr<spdlog::logger>& lg, Broker* broker);
