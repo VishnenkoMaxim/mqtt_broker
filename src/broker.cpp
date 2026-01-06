@@ -29,8 +29,7 @@ vector<string> pack_type_names{"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUB
     Broker& broker = Broker::GetInstance();
     broker.lg->debug("Start QoSThread{}");
 
-    shared_lock lock{broker.qos_mutex};
-    lock.unlock();
+    shared_lock lock(broker.qos_mutex, std::defer_lock);
     map<int, string> clients_id_map;
 
     while(true){
