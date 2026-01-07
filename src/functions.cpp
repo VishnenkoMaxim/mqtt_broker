@@ -31,8 +31,8 @@ ServerCfgData ReadConfig(const char *cfg_path, cfg_err &err){
     const Setting &broker_cfg = root["broker"];
 
     string path;
-    int size(0);
-    int max_file(0);
+    unsigned int size(0);
+    unsigned int max_file(0);
     int log_level;
     int port;
     string control_socket_path;
@@ -42,7 +42,6 @@ ServerCfgData ReadConfig(const char *cfg_path, cfg_err &err){
         err = cfg_err::bad_arg;
         return ServerCfgData{};
     }
-
     if (!log_cfg.lookupValue("size", size)) {
         std::cerr << "Size arg error. Set default" << std::endl;
         size = 10*_1MB_;
